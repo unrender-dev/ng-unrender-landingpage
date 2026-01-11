@@ -437,35 +437,31 @@ export class FeatureTabs implements OnInit, AfterViewInit, OnDestroy {
       subtitle: 'Automação Residencial',
       description: 'Soluções completas para automação residencial, controle de iluminação, climatização e segurança.',
       carouselImages: [
+
         {
-          url: '/smarthome-light.gif',
-          link: 'https://unrender.dev',
-          alt: 'Smart Home Lighting'
-        },
-        {
-          url: '/smarthome.gif',
+          url: 'features/smarthome-cameras1.gif',
           link: 'https://unrender.dev',
           alt: 'Home Automation'
         },
         {
-          url: '/smart-locker.webp',
+          url: 'features/smarthome-lamp2.gif',
           link: 'https://unrender.dev',
-          alt: 'Smart Locker'
+          alt: 'Home Automation'
         },
         {
-          url: '/smarthome-aspirador.gif',
+          url: 'features/smarthome-doorbell.gif',
           link: 'https://unrender.dev',
-          alt: 'Robot Vacuum'
+          alt: 'Smart Doorbell'
         },
         {
-          url: '/smarthub-tablet.gif',
+          url: 'features/smarthome-tomada.gif',
           link: 'https://unrender.dev',
-          alt: 'Smart Hub Control'
+          alt: 'Smart Outlet'
         }
       ],
       features: [
         {
-          name: 'Controle Residencial',
+          name: 'szatrole Residencial',
           loadComponent: () => import('./examples/smart-home/smart-home.component').then(m => m.SmartHomeComponent)
         },
         {
@@ -489,17 +485,22 @@ export class FeatureTabs implements OnInit, AfterViewInit, OnDestroy {
       description: 'Prestamos consultoria especializada, levantamos preços e intermediamos compra e venda de equipamentos.',
       carouselImages: [
         {
-          url: '/consulting.jpg',
+          url: 'features/gpu-rig2.jpg',
+          link: 'https:/ unrender.dev',
+          alt: 'Consultoria de Hardware'
+        },
+        {
+          url: 'features/network-switc.gif',
           link: 'https://unrender.dev',
           alt: 'Consultoria de Hardware'
         },
         {
-          url: '/server.jpg',
+          url: 'features/server-rack.webp',
           link: 'https://unrender.dev',
           alt: 'Servidores e Infraestrutura'
         },
         {
-          url: '/support.jpg',
+          url: 'features/network2.jpg',
           link: 'https://unrender.dev',
           alt: 'Suporte Técnico'
         }
@@ -550,17 +551,17 @@ export class FeatureTabs implements OnInit, AfterViewInit, OnDestroy {
       description: 'Soluções completas de PDV, monitores touchscreen e totens para automação do seu negócio.',
       carouselImages: [
         {
-          url: '/sobrePDV.jpg',
+          url: 'features/pdv1.jpg',
           link: 'https://unrender.dev',
           alt: 'Sistemas PDV'
         },
         {
-          url: '/qotar-png.png',
+          url: 'features/pdv2.jpg',
           link: 'https://unrender.dev',
           alt: 'Qotar - Sistema de Vendas'
         },
         {
-          url: '/pequi-png.png',
+          url: 'features/pdv3.jpg',
           link: 'https://unrender.dev',
           alt: 'Pequi - Automação Comercial'
         }

@@ -188,9 +188,16 @@ $ios-accent: $unrender-orange;
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  -ms-overflow-style: none !important;
+  /* IE and Edge */
+  scrollbar-width: none !important;
+  /* Firefox */
 
   &::-webkit-scrollbar {
-    display: none;
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
   }
 }
 

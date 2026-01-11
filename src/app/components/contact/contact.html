@@ -6,20 +6,20 @@
       <div class="md:col-span-3 text-left">
         <label for="name" class="block text-xs font-medium mb-1 text-unrender-accent">Nome</label>
         <input type="text" id="name" name="name" [(ngModel)]="contactName"
-          class="w-full bg-opacity-10 bg-white border border-gray-600 rounded px-3 py-2 text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:border-unrender-accent focus:ring-1 focus:ring-unrender-accent transition-all text-sm"
+          class="w-full bg-opacity-10 bg-white border border-gray-600 rounded px-3 py-2 text-white placeholder-white placeholder-opacity-100 focus:outline-none focus:border-unrender-accent focus:ring-1 focus:ring-unrender-accent transition-all text-sm"
           placeholder="Seu nome" required />
       </div>
       <div class="md:col-span-3 text-left">
         <label for="contact" class="block text-xs font-medium mb-1 text-unrender-accent">Contato</label>
         <input type="text" id="contact" name="contact" [(ngModel)]="contactInfo"
           (input)="detectAndFormatContactInfo($event)"
-          class="w-full bg-opacity-10 bg-white border border-gray-600 rounded px-3 py-2 text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:border-unrender-accent focus:ring-1 focus:ring-unrender-accent transition-all text-sm"
+          class="w-full bg-opacity-10 bg-white border border-gray-600 rounded px-3 py-2 text-white placeholder-white placeholder-opacity-100 focus:outline-none focus:border-unrender-accent focus:ring-1 focus:ring-unrender-accent transition-all text-sm"
           placeholder="Email ou Telefone" required />
       </div>
       <div class="md:col-span-4 text-left">
         <label for="message" class="block text-xs font-medium mb-1 text-unrender-accent">Mensagem</label>
         <input type="text" id="message" name="message" [(ngModel)]="contactMessage"
-          class="w-full bg-opacity-10 bg-white border border-gray-600 rounded px-3 py-2 text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:border-unrender-accent focus:ring-1 focus:ring-unrender-accent transition-all text-sm"
+          class="w-full bg-opacity-10 bg-white border border-gray-600 rounded px-3 py-2 text-white placeholder-white placeholder-opacity-100 focus:outline-none focus:border-unrender-accent focus:ring-1 focus:ring-unrender-accent transition-all text-sm"
           placeholder="Como podemos ajudar?" required />
       </div>
       <div class="md:col-span-2">
@@ -60,6 +60,21 @@
             class="text-left text-white no-underline hover:text-unrender-accent transition-colors uppercase">Quero Totem
             de
             Vendas</a>
+        </li>
+        <li class="text-left hover-grow">
+          <a href="#"
+            class="text-left text-white no-underline hover:text-unrender-accent transition-colors uppercase">Quero
+            Aumentar as Vendas</a>
+        </li>
+        <li class="text-left hover-grow">
+          <a href="#"
+            class="text-left text-white no-underline hover:text-unrender-accent transition-colors uppercase">QUERO
+            AUTOMATIZAR AS COMPRAS</a>
+        </li>
+        <li class="text-left hover-grow">
+          <a href="#"
+            class="text-left text-white no-underline hover:text-unrender-accent transition-colors uppercase">QUERO UM
+            CARDÁPIO WEB</a>
         </li>
         <li class="text-left hover-grow">
           <a href="#"
