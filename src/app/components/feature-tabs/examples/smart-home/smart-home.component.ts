@@ -1,343 +1,594 @@
-import { Component, ElementRef, ViewChild, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { 
-  faLightbulb, faFan, faTv, faTemperatureHigh, faDoorOpen, faDoorClosed, faVideo, faMusic,
-  faRobot, faMicrophone, faPaperPlane, faSearch, faHome, faLock
+import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import {
+  faFan,
+  faHouse,
+  faKey,
+  faLightbulb,
+  faLock,
+  faLockOpen,
+  faMagnifyingGlass,
+  faMinus,
+  faMoon,
+  faPaperPlane,
+  faPlus,
+  faRobot,
+  faSnowflake,
+  faTv,
+  faVideo,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons';
+import { I18nService, Params } from '../../../../i18n/i18n.service';
 import { ChatbotService } from '../../../../services/chatbotservice';
+import { ABORT, Showcase } from '../hardware-demos/showcase';
+import { I18N } from './smart-home.i18n';
+
+type Key = keyof (typeof I18N)['pt'];
+type RoomId = 'living' | 'kitchen' | 'bedroom' | 'office';
+type DeviceType = 'light' | 'tv' | 'ac' | 'fan' | 'lock' | 'camera';
+type DeviceId = 'l1' | 't1' | 'a1' | 'lock1' | 'l2' | 'f1' | 'l3' | 'a2' | 'l4' | 'c1';
+type SceneId = 'arrive' | 'hood' | 'keys' | 'night';
 
 interface Device {
-  id: string;
-  name: string;
-  type: 'light' | 'fan' | 'ac' | 'tv' | 'door' | 'camera' | 'speaker' | 'lock';
-  isOn: boolean;
-  icon: any;
-  room: string;
-  value?: number; // For temperature or volume
+  id: DeviceId;
+  type: DeviceType;
+  room: RoomId;
+  name: Key;
+  icon: IconDefinition;
+}
+
+/** `on`: ligado (na fechadura, trancada). `value`: intensidade da luz (%) ou temperatura (°C). */
+interface DeviceState {
+  on: boolean;
+  value: number;
 }
 
 interface Message {
-  sender: 'user' | 'ai';
-  text: string;
-  time: string;
+  id: number;
+  from: 'user' | 'ai';
+  /** Mensagens do roteiro guardam a chave: trocam de idioma junto com a página. */
+  key?: Key;
+  params?: Params;
+  text?: string;
 }
+
+const ROOMS: { id: RoomId; name: Key }[] = [
+  { id: 'living', name: 'rLiving' },
+  { id: 'kitchen', name: 'rKitchen' },
+  { id: 'bedroom', name: 'rBedroom' },
+  { id: 'office', name: 'rOffice' },
+];
+
+const DEVICES: Device[] = [
+  { id: 'l1', type: 'light', room: 'living', name: 'dMainLight', icon: faLightbulb },
+  { id: 't1', type: 'tv', room: 'living', name: 'dTv', icon: faTv },
+  { id: 'a1', type: 'ac', room: 'living', name: 'dAc', icon: faSnowflake },
+  { id: 'lock1', type: 'lock', room: 'living', name: 'dLock', icon: faLock },
+  { id: 'l2', type: 'light', room: 'kitchen', name: 'dCounterLight', icon: faLightbulb },
+  { id: 'f1', type: 'fan', room: 'kitchen', name: 'dHood', icon: faFan },
+  { id: 'l3', type: 'light', room: 'bedroom', name: 'dLamp', icon: faLightbulb },
+  { id: 'a2', type: 'ac', room: 'bedroom', name: 'dAc', icon: faSnowflake },
+  { id: 'l4', type: 'light', room: 'office', name: 'dDeskLight', icon: faLightbulb },
+  { id: 'c1', type: 'camera', room: 'office', name: 'dCamera', icon: faVideo },
+];
+
+const INITIAL: Record<DeviceId, DeviceState> = {
+  l1: { on: false, value: 80 },
+  t1: { on: false, value: 0 },
+  a1: { on: false, value: 24 },
+  lock1: { on: true, value: 0 },
+  l2: { on: false, value: 70 },
+  f1: { on: false, value: 0 },
+  l3: { on: false, value: 40 },
+  a2: { on: false, value: 22 },
+  l4: { on: false, value: 90 },
+  c1: { on: true, value: 0 },
+};
+
+/** Velocidade de cruzeiro do exaustor, em graus por segundo. */
+const FAN_SPEED = 560;
+
+/** Tira acentos e caixa para comparar comandos digitados nos quatro idiomas. */
+const plain = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 @Component({
   selector: 'app-smart-home',
   standalone: true,
-  imports: [CommonModule, FontAwesomeModule, FormsModule],
+  imports: [FontAwesomeModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './smart-home.component.html',
-  styleUrls: ['./smart-home.component.scss']
+  styleUrls: ['./smart-home.component.scss'],
 })
-export class SmartHomeComponent {
-  @ViewChild('chatContainer') chatContainer!: ElementRef;
-  private chatbotService = inject(ChatbotService);
+export class SmartHomeComponent implements AfterViewInit, OnDestroy {
+  readonly i18n = inject(I18nService);
+  readonly t = this.i18n.scope(I18N);
+  private readonly chatbot = inject(ChatbotService);
+  private readonly zone = inject(NgZone);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
 
-  faLightbulb = faLightbulb;
-  faFan = faFan;
-  faTv = faTv;
-  faTemperatureHigh = faTemperatureHigh;
-  faDoorOpen = faDoorOpen;
-  faDoorClosed = faDoorClosed;
-  faVideo = faVideo;
-  faMusic = faMusic;
-  faRobot = faRobot;
-  faMicrophone = faMicrophone;
-  faPaperPlane = faPaperPlane;
-  faSearch = faSearch;
-  faHome = faHome;
-  faLock = faLock;
+  @ViewChild('log') private logRef!: ElementRef<HTMLElement>;
+  @ViewChild('fan') private fanRef!: ElementRef<HTMLElement>;
+  @ViewChild('closeBtn') private closeRef!: ElementRef<HTMLButtonElement>;
 
-  activeCameraFeed: string | null = null;
-  currentMessage: string = '';
-  isInputFocused = false;
+  readonly faRobot = faRobot;
+  readonly faHouse = faHouse;
+  readonly faMagnifyingGlass = faMagnifyingGlass;
+  readonly faMoon = faMoon;
+  readonly faPaperPlane = faPaperPlane;
+  readonly faFan = faFan;
+  readonly faLock = faLock;
+  readonly faLockOpen = faLockOpen;
+  readonly faVideo = faVideo;
+  readonly faKey = faKey;
+  readonly faMinus = faMinus;
+  readonly faPlus = faPlus;
+  readonly faXmark = faXmark;
 
-  rooms = ['Sala de Estar', 'Cozinha', 'Quarto', 'Escritório'];
-  
-  devices: Device[] = [
-    { id: 'l1', name: 'Luz Principal', type: 'light', isOn: false, icon: faLightbulb, room: 'Sala de Estar' },
-    { id: 't1', name: 'Smart TV', type: 'tv', isOn: false, icon: faTv, room: 'Sala de Estar' },
-    { id: 'a1', name: 'Ar Condicionado', type: 'ac', isOn: false, icon: faTemperatureHigh, room: 'Sala de Estar', value: 24 },
-    
-    { id: 'l2', name: 'Luz Balcão', type: 'light', isOn: false, icon: faLightbulb, room: 'Cozinha' },
-    { id: 'f1', name: 'Exaustor', type: 'fan', isOn: false, icon: faFan, room: 'Cozinha' },
-    
-    { id: 'l3', name: 'Abajur', type: 'light', isOn: false, icon: faLightbulb, room: 'Quarto' },
-    { id: 'a2', name: 'Ar Condicionado', type: 'ac', isOn: false, icon: faTemperatureHigh, room: 'Quarto', value: 22 },
-    
-    { id: 'l4', name: 'Luz Mesa', type: 'light', isOn: false, icon: faLightbulb, room: 'Escritório' },
-    { id: 'c1', name: 'Câmera', type: 'camera', isOn: true, icon: faVideo, room: 'Escritório' },
-    { id: 'lock1', name: 'Fechadura', type: 'lock', isOn: true, icon: faLock, room: 'Sala de Estar' } // Added lock
-  ];
+  readonly rooms = ROOMS.map((r) => ({ ...r, devices: DEVICES.filter((d) => d.room === r.id) }));
 
-  // AI Agent State
-  messages: Message[] = [
-    { sender: 'ai', text: 'Como posso ajudar?', time: 'Agora' }
-  ];
-  isProcessing = false;
-  scanningRoom: string | null = null;
-  detectedItem: { x: number, y: number, label: string } | null = null;
-  
-  // Item location (simulated in Sala de Estar)
-  keysLocation = { room: 'Sala de Estar', x: 60, y: 65 }; 
+  readonly state = signal<Record<DeviceId, DeviceState>>(structuredClone(INITIAL));
+  readonly messages = signal<Message[]>([{ id: 0, from: 'ai', key: 'mHello' }]);
+  readonly command = signal('');
+  /** O assistente está executando uma cena ou esperando a IA. */
+  readonly busy = signal(false);
+  readonly scanningRoom = signal<RoomId | null>(null);
+  readonly keysFound = signal(false);
+  readonly cameraOpen = signal(false);
+  private readonly clock = signal(new Date());
+  readonly clockLabel = computed(() =>
+    this.i18n.date(this.clock(), { dateStyle: 'short', timeStyle: 'medium' }),
+  );
 
-  toggleDevice(device: Device) {
-    if (device.type === 'camera') {
-      this.activeCameraFeed = device.id;
-    } else {
-      device.isOn = !device.isOn;
+  private readonly showcase = new Showcase(
+    this.host.nativeElement,
+    12000,
+    () => !this.busy() && !this.cameraOpen() && !this.command(),
+  );
+  private msgId = 0;
+  private sceneToken = 0;
+  private sceneIsAuto = false;
+  private keysTimer: ReturnType<typeof setTimeout> | null = null;
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
+  private returnFocus: HTMLElement | null = null;
+
+  // Exaustor: rotação contínua com inércia (acelera e desacelera, nunca para seco)
+  private fanAngle = 0;
+  private fanOmega = 0;
+  private fanRaf = 0;
+  private fanLast = 0;
+
+  ngAfterViewInit(): void {
+    this.showcase.onActive = () => this.syncFan();
+    this.showcase.start(async (step) => {
+      await step(1800);
+      await this.runScene('arrive', true);
+      await step(3200);
+      await this.runScene('hood', true);
+      await step(2600);
+      await this.runScene('keys', true);
+      await step(3600);
+      await this.runScene('night', true);
+      await step(4200);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.showcase.destroy();
+    cancelAnimationFrame(this.fanRaf);
+    if (this.keysTimer) clearTimeout(this.keysTimer);
+    if (this.clockTimer) clearInterval(this.clockTimer);
+  }
+
+  // ---------------------------------------------------------------- template
+
+  st(id: DeviceId): DeviceState {
+    return this.state()[id];
+  }
+
+  /** Brilho da luz para a planta (0 a 1); o CSS faz a transição suave. */
+  glow(id: DeviceId): number {
+    const s = this.state()[id];
+    return s.on ? s.value / 100 : 0;
+  }
+
+  statusOf(d: Device): string {
+    const s = this.state()[d.id];
+    switch (d.type) {
+      case 'light':
+        return s.on ? this.i18n.number(s.value / 100, { style: 'percent' }) : this.t('lightOff');
+      case 'tv':
+        return this.t(s.on ? 'tvOn' : 'tvOff');
+      case 'fan':
+        return this.t(s.on ? 'fanOn' : 'fanOff');
+      case 'ac':
+        return s.on ? `${s.value} °C · ${this.t('cooling')}` : this.t('acOff');
+      case 'lock':
+        return this.t(s.on ? 'locked' : 'unlocked');
+      default:
+        return this.t('live');
     }
   }
 
-  closeCameraFeed() {
-    this.activeCameraFeed = null;
+  textOf(m: Message): string {
+    return m.key ? this.t(m.key, m.params) : (m.text ?? '');
   }
 
-  getDevicesByRoom(room: string) {
-    return this.devices.filter(d => d.room === room);
+  // ---------------------------------------------------------------- ações do usuário
+
+  /** Qualquer toque devolve o controle ao usuário (e cancela a cena da vitrine em curso). */
+  onTouch(): void {
+    this.showcase.interrupt();
+    if (this.sceneIsAuto) this.cancelScene();
   }
 
-  async sendMessage() {
-    if (!this.currentMessage.trim() || this.isProcessing) return;
+  toggle(id: DeviceId): void {
+    this.cancelScene();
+    this.patch(id, { on: !this.state()[id].on });
+  }
 
-    const userText = this.currentMessage;
-    this.addUserMessage(userText);
-    this.currentMessage = '';
-    this.isProcessing = true;
+  setValue(id: DeviceId, event: Event): void {
+    this.patch(id, { value: +(event.target as HTMLInputElement).value });
+  }
 
-    // Construct System Message with Device State
-    const deviceState = this.devices.map(d => 
-      `- ${d.name} (ID: ${d.id}, Room: ${d.room}, Type: ${d.type}, Status: ${d.isOn ? 'ON' : 'OFF'}${d.value ? ', Value: ' + d.value : ''})`
-    ).join('\n');
+  nudge(id: DeviceId, delta: number): void {
+    const value = Math.min(30, Math.max(16, this.state()[id].value + delta));
+    this.patch(id, { value });
+  }
 
-    const systemMessage = `
-      You are a Smart Home Assistant. You have control over the following devices:
-      ${deviceState}
+  scene(id: SceneId): void {
+    this.showcase.interrupt();
+    void this.showcase.guard(() => this.runScene(id, false));
+  }
 
-      User Input: "${userText}"
+  onCommand(event: Event): void {
+    this.showcase.interrupt();
+    this.command.set((event.target as HTMLInputElement).value);
+  }
 
-      Instructions:
-      Analyze the user's request and return a JSON ARRAY containing the actions to perform.
-      Do not output any conversational text outside the JSON.
-      
-      Supported Actions:
-      1. Toggle Device: {"action": "toggle", "id": "DEVICE_ID", "state": true/false}
-      2. Set Value: {"action": "setValue", "id": "DEVICE_ID", "value": NUMBER}
-      3. Find Item: {"action": "find", "item": "ITEM_NAME"}
-      4. Scenario: {"action": "scenario", "name": "SCENARIO_NAME"}
-      5. General Response: {"action": "response", "text": "Your answer here"}
+  send(event?: Event): void {
+    event?.preventDefault();
+    const text = this.command().trim();
+    if (!text) return;
+    this.showcase.interrupt();
+    this.cancelScene();
+    this.command.set('');
+    this.say('user', { text });
+    if (!this.interpret(text)) this.askAi(text);
+  }
 
-      Example Response for "Turn on living room lights":
-      [{"action": "toggle", "id": "l1", "state": true}]
+  openCamera(event?: Event): void {
+    this.returnFocus = (event?.currentTarget as HTMLElement) ?? null;
+    this.cameraOpen.set(true);
+    this.clock.set(new Date());
+    this.clockTimer ??= setInterval(() => this.clock.set(new Date()), 1000);
+    setTimeout(() => this.closeRef?.nativeElement.focus(), 60);
+  }
 
-      Example Response for "Turn off everything":
-      [{"action": "toggle", "id": "l1", "state": false}, {"action": "toggle", "id": "l2", "state": false}, ...]
+  closeCamera(): void {
+    if (!this.cameraOpen()) return;
+    this.cameraOpen.set(false);
+    if (this.clockTimer) clearInterval(this.clockTimer);
+    this.clockTimer = null;
+    this.returnFocus?.focus();
+    this.returnFocus = null;
+  }
 
-      Example Response for "Hello":
-      [{"action": "response", "text": "Hello! How can I help you with your smart home?"}]
+  // ---------------------------------------------------------------- estado
 
-      IMPORTANT: Output ONLY the JSON Array. No markdown, no explanations.
-    `;
+  private patch(id: DeviceId, p: Partial<DeviceState>): void {
+    this.state.update((s) => ({ ...s, [id]: { ...s[id], ...p } }));
+    if (id === 'f1') this.syncFan();
+  }
 
+  private say(from: Message['from'], m: { key?: Key; params?: Params; text?: string }): void {
+    this.messages.update((list) => [...list.slice(-39), { id: ++this.msgId, from, ...m }]);
+    setTimeout(() => {
+      const el = this.logRef?.nativeElement;
+      el?.scrollTo({ top: el.scrollHeight, behavior: this.showcase.reduced ? 'auto' : 'smooth' });
+    }, 30);
+  }
+
+  private showKeys(): void {
+    this.keysFound.set(true);
+    if (this.keysTimer) clearTimeout(this.keysTimer);
+    this.keysTimer = setTimeout(() => this.keysFound.set(false), 6000);
+  }
+
+  // ---------------------------------------------------------------- cenas
+
+  private cancelScene(): void {
+    this.sceneToken++;
+    this.sceneIsAuto = false;
+    this.scanningRoom.set(null);
+    this.busy.set(false);
+  }
+
+  /** Roda uma cena passo a passo; uma nova cena (ou um toque) cancela a anterior. */
+  private async runScene(id: SceneId, auto: boolean): Promise<void> {
+    const token = ++this.sceneToken;
+    this.sceneIsAuto = auto;
+    this.busy.set(true);
+    const wait = async (ms: number) => {
+      await this.showcase.wait(ms);
+      if (token !== this.sceneToken) throw ABORT;
+    };
     try {
-      // Convert internal message format to service format
-      const history = this.messages.map(m => ({
-        role: m.sender === 'ai' ? 'assistant' : 'user' as 'assistant' | 'user',
-        content: m.text
-      }));
+      switch (id) {
+        case 'arrive':
+          this.say('user', { key: 'uArrive' });
+          await wait(800);
+          this.say('ai', { key: 'aArrive1' });
+          await wait(700);
+          this.patch('lock1', { on: false });
+          await wait(600);
+          this.patch('l1', { on: true, value: 80 });
+          await wait(450);
+          this.patch('l2', { on: true, value: 70 });
+          await wait(450);
+          this.patch('a2', { on: false });
+          this.patch('a1', { on: true, value: 23 });
+          await wait(600);
+          this.patch('t1', { on: true });
+          await wait(500);
+          this.say('ai', { key: 'aArrive2' });
+          break;
 
-      // Use Gemini 2.0 Flash Experimental for fastest response
-      this.chatbotService.getGeminiResponse(systemMessage, history, 'gemini-2.5-flash-lite').subscribe({
-        next: (response) => {
-          this.handleAiResponse(response);
-          this.isProcessing = false;
-        },
-        error: (err) => {
-          console.error('AI Error:', err);
-          this.addAiMessage('Desculpe, não consegui processar seu comando.');
-          this.isProcessing = false;
-        }
-      });
-    } catch (e) {
-      console.error(e);
-      this.isProcessing = false;
-    }
-  }
+        case 'hood':
+          this.say('user', { key: 'uHood' });
+          await wait(800);
+          this.patch('f1', { on: true });
+          await wait(500);
+          this.say('ai', { key: 'aHood' });
+          break;
 
-  async handleAiResponse(response: string) {
-    try {
-      // Clean up markdown code blocks if present
-      const cleanResponse = response.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      let commands: any[] = [];
+        case 'keys':
+          this.say('user', { key: 'uKeys' });
+          await wait(900);
+          this.say('ai', { key: 'aKeys1' });
+          await this.scanRooms(wait);
+          this.say('ai', { key: 'aKeys2' });
+          this.showKeys();
+          break;
 
-      // Try parsing as a single JSON array or object
-      try {
-        const parsed = JSON.parse(cleanResponse);
-        if (Array.isArray(parsed)) {
-          commands = parsed;
-        } else {
-          commands = [parsed];
-        }
-      } catch (e) {
-        // If standard parsing fails, try to extract JSON objects (handling concatenated JSONs)
-        const matches = cleanResponse.match(/\{[^{}]*\}/g);
-        if (matches) {
-          commands = matches.map(m => {
-            try { return JSON.parse(m); } catch { return null; }
-          }).filter(c => c !== null);
-        }
-      }
-
-      if (commands.length > 0) {
-        let responseText = '';
-        let actionsPerformed = 0;
-
-        for (const cmd of commands) {
-          if (cmd.action === 'response') {
-            responseText = cmd.text;
-          } else {
-            const result = await this.executeCommand(cmd);
-            if (result) actionsPerformed++;
+        case 'night':
+          this.say('user', { key: 'uNight' });
+          await wait(800);
+          this.say('ai', { key: 'aNight1' });
+          for (const light of ['l4', 'l2', 'l1', 'l3'] as const) {
+            await wait(420);
+            this.patch(light, { on: false });
           }
-        }
-
-        // If we performed actions but have no text response, add a generic confirmation
-        if (actionsPerformed > 0 && !responseText) {
-          this.addAiMessage(`Executei ${actionsPerformed} ações com sucesso.`);
-        } else if (responseText) {
-          this.addAiMessage(responseText);
-        }
-      } else {
-        // Fallback if no JSON found
-        this.addAiMessage(response);
+          await wait(420);
+          this.patch('t1', { on: false });
+          this.patch('f1', { on: false });
+          this.say('ai', { key: 'aNight2' });
+          await wait(900);
+          this.patch('lock1', { on: true });
+          this.say('ai', { key: 'aNight3' });
+          await wait(900);
+          this.patch('a1', { on: false });
+          this.patch('a2', { on: true, value: 22 });
+          this.say('ai', { key: 'aNight4' });
+          break;
       }
-    } catch (e) {
-      console.error('Error parsing AI response', e);
-      this.addAiMessage(response);
+      await wait(300);
+    } finally {
+      if (token === this.sceneToken) {
+        this.busy.set(false);
+        this.sceneIsAuto = false;
+      }
     }
   }
 
-  async executeCommand(command: any): Promise<boolean> {
-    if (command.action === 'toggle') {
-      const device = this.devices.find(d => d.id === command.id);
-      if (device) {
-        device.isOn = command.state;
-        return true;
-      }
-    } else if (command.action === 'setValue') {
-      const device = this.devices.find(d => d.id === command.id);
-      if (device) {
-        device.value = command.value;
-        device.isOn = true; // Auto turn on
-        return true;
-      }
-    } else if (command.action === 'find') {
-      this.addAiMessage(`Procurando por ${command.item}...`);
-      await this.simulateScanning();
-      if (command.item && command.item.toLowerCase().includes('chave')) {
-        this.addAiMessage('Encontrei! Estão no sofá da Sala.');
-        this.highlightItem(60, 65, 'Chaves');
-      } else {
-        this.addAiMessage(`Não encontrei ${command.item} nas câmeras.`);
-      }
+  /** Varre os cômodos pelas câmeras, um por vez, até a sala. */
+  private async scanRooms(wait: (ms: number) => Promise<void>): Promise<void> {
+    for (const room of ['office', 'kitchen', 'living'] as const) {
+      this.scanningRoom.set(room);
+      await wait(1300);
+    }
+    this.scanningRoom.set(null);
+    await wait(350);
+  }
+
+  // ---------------------------------------------------------------- comandos digitados
+
+  /** Entende localmente os pedidos mais comuns (pt/en/es/fr); devolve `false` se não reconhecer. */
+  private interpret(raw: string): boolean {
+    const text = ` ${plain(raw).replace(/[.,;:!?¿¡]/g, ' ')} `;
+    const has = (...words: string[]) => words.some((w) => text.includes(w));
+
+    if (has('boa noite', 'good night', 'goodnight', 'buenas noches', 'bonne nuit')) return this.sceneFromText('night');
+    if (has('chave', ' key', 'llave', ' cle ', ' cles ', 'clef')) return this.sceneFromText('keys');
+    if (has('cheguei', 'estou em casa', 'i am home', "i'm home", 'im home', 'llegue', 'estoy en casa', 'rentre')) {
+      return this.sceneFromText('arrive');
+    }
+
+    // "desligar" contém "ligar": o teste de desligar vem primeiro.
+    const unlock = has('destranc', 'unlock', 'deverrouill', 'abre a porta', 'abrir a porta', 'abre la puerta', 'ouvre');
+    const lock = !unlock && has('tranc', 'lock', 'verrouill', 'cierra', 'fecha a porta', 'fechar a porta');
+    const off = has('deslig', 'apag', 'turn off', 'switch off', 'eteins', 'eteindre', 'etein');
+    const on = !off && has(' liga', ' ligue', 'acend', 'acender', 'turn on', 'switch on', 'enciend', 'encend', 'prende', 'allum');
+
+    const types: DeviceType[] = [];
+    if (has('luz', 'light', 'lumier', 'lamp', 'luces', 'abajur')) types.push('light');
+    if (has('tv', 'tele')) types.push('tv');
+    if (has('exaustor', 'ventilador', 'fan', 'hood', 'extractor', 'hotte')) types.push('fan');
+    if (has('ar-condicionado', 'ar condicionado', ' ar ', 'air', 'aire', 'clim', ' ac')) types.push('ac');
+    const everything = has('tudo', 'todas', 'todos', 'everything', ' all', 'todo', 'tout');
+
+    const rooms: RoomId[] = [];
+    if (has('sala', 'living', 'salon')) rooms.push('living');
+    if (has('cozinha', 'kitchen', 'cocina', 'cuisine')) rooms.push('kitchen');
+    if (has('quarto', 'bedroom', 'dormitorio', 'habitacion', 'chambre')) rooms.push('bedroom');
+    if (has('escritorio', 'office', 'oficina', 'despacho', 'bureau')) rooms.push('office');
+
+    if (lock || unlock) {
+      this.patch('lock1', { on: lock });
+      this.say('ai', { key: 'aDone1' });
       return true;
-    } else if (command.action === 'scenario') {
-      if (command.name === 'good-night') {
-        await this.triggerScenario('good-night');
-        return true;
-      }
     }
-    return false;
+    if (!on && !off) return false;
+    if (!types.length && !everything) return false;
+
+    const targets = DEVICES.filter(
+      (d) =>
+        d.type !== 'camera' &&
+        d.type !== 'lock' &&
+        (everything && !types.length ? true : types.includes(d.type)) &&
+        (!rooms.length || rooms.includes(d.room)),
+    );
+    if (!targets.length) return false;
+    for (const d of targets) this.patch(d.id, { on });
+    this.say('ai', targets.length === 1 ? { key: 'aDone1' } : { key: 'aDoneN', params: { n: targets.length } });
+    return true;
   }
 
-  // AI Methods
-  async triggerScenario(scenario: 'find-keys' | 'good-night') {
-    if (this.isProcessing) return;
-    this.isProcessing = true;
+  private sceneFromText(id: SceneId): boolean {
+    // A frase do usuário já está no histórico: a cena só não repete a fala dele.
+    this.messages.update((list) => list.slice(0, -1));
+    void this.showcase.guard(() => this.runScene(id, false));
+    return true;
+  }
 
-    if (scenario === 'find-keys') {
-      this.addUserMessage('Onde estão minhas chaves?');
-      await this.delay(1000);
-      this.addAiMessage('Procurando nas câmeras...');
-      
-      await this.simulateScanning();
-      
-      this.addAiMessage('Encontrei! Estão no sofá da Sala.');
-      // Highlight in Sala de Estar (top left room)
-      // Coordinates need to match the visual representation in HTML
-      this.highlightItem(60, 65, 'Chaves'); 
-    } 
-    else if (scenario === 'good-night') {
-      this.addUserMessage('Modo Boa Noite');
-      await this.delay(800);
-      this.addAiMessage('Executando rotina noturna...');
-      
-      await this.delay(1000);
-      // Turn off all lights
-      this.devices.filter(d => d.type === 'light').forEach(d => d.isOn = false);
-      this.addAiMessage('Luzes desligadas.');
-      
-      await this.delay(1000);
-      // Lock door
-      const lock = this.devices.find(d => d.id === 'lock1');
-      if (lock) lock.isOn = true; // Locked
-      this.addAiMessage('Portas trancadas.');
-      
-      await this.delay(1000);
-      // Adjust AC in Bedroom
-      const ac = this.devices.find(d => d.id === 'a2');
-      if (ac) {
-        ac.isOn = true;
-        ac.value = 22;
-      }
-      this.addAiMessage('Ar do quarto em 22°C. Boa noite!');
+  /** Pedido livre: consulta o modelo de linguagem e executa as ações que ele devolver. */
+  private askAi(userText: string): void {
+    const token = ++this.sceneToken;
+    this.busy.set(true);
+    const language = { pt: 'Brazilian Portuguese', en: 'English', es: 'Spanish', fr: 'French' }[this.i18n.lang()];
+    const deviceList = DEVICES.map((d) => {
+      const s = this.state()[d.id];
+      return `- ${this.t(d.name)} (id: ${d.id}, room: ${d.room}, type: ${d.type}, on: ${s.on}, value: ${s.value})`;
+    }).join('\n');
+    const system = `You are a smart home assistant controlling these devices:
+${deviceList}
+
+User input: "${userText}"
+
+Return ONLY a JSON array of actions, with no markdown and no extra text. Supported actions:
+{"action":"toggle","id":"DEVICE_ID","state":true|false}  (for the lock, true means locked)
+{"action":"setValue","id":"DEVICE_ID","value":NUMBER}   (light brightness 10-100 or temperature 16-30)
+{"action":"find","item":"ITEM_NAME"}
+{"action":"scenario","name":"arrive"|"find-keys"|"good-night"}
+{"action":"response","text":"short answer in ${language}"}`;
+    const history = this.messages()
+      .slice(0, -1)
+      .map((m) => ({ role: m.from === 'ai' ? ('assistant' as const) : ('user' as const), content: this.textOf(m) }));
+
+    const fail = () => {
+      if (token !== this.sceneToken) return;
+      this.say('ai', { key: 'aError' });
+      this.busy.set(false);
+    };
+    try {
+      this.chatbot.getGeminiResponse(system, history, 'gemini-2.5-flash-lite').subscribe({
+        next: (response) => {
+          if (token !== this.sceneToken) return;
+          void this.showcase.guard(() => this.applyAi(response, token)).catch(fail);
+        },
+        error: fail,
+      });
+    } catch {
+      fail();
+    }
+  }
+
+  private async applyAi(response: string, token: number): Promise<void> {
+    const clean = response.replace(/```json/g, '').replace(/```/g, '').trim();
+    let actions: any[] = [];
+    try {
+      const parsed = JSON.parse(clean);
+      actions = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      actions = (clean.match(/\{[^{}]*\}/g) ?? [])
+        .map((m) => {
+          try {
+            return JSON.parse(m);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
     }
 
-    this.isProcessing = false;
-  }
-
-  async simulateScanning() {
-    const roomsToScan = ['Escritório', 'Cozinha', 'Sala de Estar'];
-    for (const room of roomsToScan) {
-      this.scanningRoom = room;
-      await this.delay(1200);
-      if (room === 'Sala de Estar') {
-        this.scanningRoom = null;
-        return;
+    const wait = async (ms: number) => {
+      await this.showcase.wait(ms);
+      if (token !== this.sceneToken) throw ABORT;
+    };
+    let changed = 0;
+    let reply = '';
+    let scene: SceneId | null = null;
+    try {
+      for (const a of actions) {
+        const device = DEVICES.find((d) => d.id === a?.id);
+        if (a?.action === 'response' && typeof a.text === 'string') {
+          reply = a.text;
+        } else if (a?.action === 'toggle' && device && device.type !== 'camera') {
+          this.patch(device.id, { on: !!a.state });
+          changed++;
+        } else if (a?.action === 'setValue' && device && (device.type === 'light' || device.type === 'ac')) {
+          const [min, max] = device.type === 'light' ? [10, 100] : [16, 30];
+          this.patch(device.id, { on: true, value: Math.min(max, Math.max(min, Math.round(+a.value) || min)) });
+          changed++;
+        } else if (a?.action === 'find' && typeof a.item === 'string') {
+          const item = a.item.slice(0, 40);
+          if (['chave', 'key', 'llave', 'cle'].some((w) => plain(item).includes(w))) scene = 'keys';
+          else {
+            this.say('ai', { key: 'aSearching', params: { item } });
+            await this.scanRooms(wait);
+            this.say('ai', { key: 'aNotFound', params: { item } });
+            changed = -1;
+          }
+        } else if (a?.action === 'scenario') {
+          scene = a.name === 'good-night' ? 'night' : a.name === 'find-keys' ? 'keys' : a.name === 'arrive' ? 'arrive' : null;
+        }
       }
+    } finally {
+      if (token === this.sceneToken) this.busy.set(false);
     }
-    this.scanningRoom = null;
+    if (scene) return this.runScene(scene, false);
+    if (reply) this.say('ai', { text: reply.slice(0, 240) });
+    else if (changed === 1) this.say('ai', { key: 'aDone1' });
+    else if (changed > 1) this.say('ai', { key: 'aDoneN', params: { n: changed } });
+    else if (changed === 0) this.say('ai', { key: 'aError' });
   }
 
-  highlightItem(x: number, y: number, label: string) {
-    this.detectedItem = { x, y, label };
-    setTimeout(() => {
-      this.detectedItem = null;
-    }, 5000);
+  // ---------------------------------------------------------------- exaustor
+
+  private syncFan(): void {
+    if (this.showcase.reduced || this.fanRaf) return;
+    const moving = this.state().f1.on || this.fanOmega > 0;
+    if (!moving || !this.showcase.active) return;
+    this.zone.runOutsideAngular(() => {
+      this.fanLast = performance.now();
+      this.fanRaf = requestAnimationFrame(this.fanFrame);
+    });
   }
 
-  addUserMessage(text: string) {
-    this.messages.push({ sender: 'user', text, time: 'Agora' });
-    this.scrollToBottom();
-  }
-
-  addAiMessage(text: string) {
-    this.messages.push({ sender: 'ai', text, time: 'Agora' });
-    this.scrollToBottom();
-  }
-
-  delay(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  scrollToBottom() {
-    setTimeout(() => {
-      if (this.chatContainer) {
-        this.chatContainer.nativeElement.scrollTop = this.chatContainer.nativeElement.scrollHeight;
-      }
-    }, 100);
-  }
+  private readonly fanFrame = (now: number) => {
+    const dt = Math.min(0.05, (now - this.fanLast) / 1000);
+    this.fanLast = now;
+    const target = this.state().f1.on ? FAN_SPEED : 0;
+    // Aproxima a velocidade do alvo aos poucos: liga acelerando, desliga girando até parar.
+    this.fanOmega += (target - this.fanOmega) * (1 - Math.exp(-dt * 1.3));
+    this.fanAngle = (this.fanAngle + this.fanOmega * dt) % 360;
+    this.fanRef.nativeElement.style.transform = `rotate(${this.fanAngle.toFixed(1)}deg)`;
+    if ((target === 0 && this.fanOmega < 2) || !this.showcase.active) {
+      if (target === 0) this.fanOmega = 0;
+      this.fanRaf = 0;
+      return;
+    }
+    this.fanRaf = requestAnimationFrame(this.fanFrame);
+  };
 }

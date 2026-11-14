@@ -1,243 +1,296 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  ViewChild,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import '@tensorflow/tfjs';
 import { CameraService } from '../../services/camera.service';
+import { CAMERA_I18N, CameraTextKey, cameraErrorKey } from '../../services/camera.i18n';
+import { I18nService, Lang } from '../../i18n/i18n.service';
+import { I18N } from './computer-vision.i18n';
+import { COCO_LABELS } from './coco-labels.i18n';
+
+type CocoKey = keyof (typeof COCO_LABELS)['pt'];
+type Phase = 'idle' | 'loading' | 'starting' | 'active' | 'error';
+type ErrorRef = { scope: 'camera'; key: CameraTextKey } | { scope: 'own'; key: 'modelError' };
+
+/** Um objeto continua na lista por este tempo depois de sumir da imagem (evita piscar). */
+const LINGER_MS = 900;
+const BOX_COLOR = '#f99126';
+const BOX_INK = '#1c0f02';
 
 @Component({
   selector: 'app-computer-vision',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './computer-vision.component.html',
-  styleUrls: ['./computer-vision.component.scss']
+  styleUrls: ['./computer-vision.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ComputerVisionComponent implements AfterViewInit, OnDestroy {
   @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
   @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;
 
+  readonly i18n = inject(I18nService);
+  readonly t = this.i18n.scope(I18N);
+  readonly ct = this.i18n.scope(CAMERA_I18N);
+  private readonly label = this.i18n.scope(COCO_LABELS);
+  private readonly zone = inject(NgZone);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   model: cocoSsd.ObjectDetection | null = null;
-  loadingStatus: string | null = 'Carregando modelo IA...';
-  isCameraActive = false;
-  error: string | null = null;
-  private animationId: number | null = null;
+  readonly phase = signal<Phase>('idle');
+  readonly error = signal<ErrorRef | null>(null);
+  /** Classes vistas agora (chaves do modelo; o nome é traduzido no template). */
+  readonly detected = signal<string[]>([]);
 
-  private translations: { [key: string]: string } = {
-    'person': 'pessoa',
-    'bicycle': 'bicicleta',
-    'car': 'carro',
-    'motorcycle': 'motocicleta',
-    'airplane': 'avião',
-    'bus': 'ônibus',
-    'train': 'trem',
-    'truck': 'caminhão',
-    'boat': 'barco',
-    'traffic light': 'semáforo',
-    'fire hydrant': 'hidrante',
-    'stop sign': 'pare',
-    'parking meter': 'parquímetro',
-    'bench': 'banco',
-    'bird': 'pássaro',
-    'cat': 'gato',
-    'dog': 'cachorro',
-    'horse': 'cavalo',
-    'sheep': 'ovelha',
-    'cow': 'vaca',
-    'elephant': 'elefante',
-    'bear': 'urso',
-    'zebra': 'zebra',
-    'giraffe': 'girafa',
-    'backpack': 'mochila',
-    'umbrella': 'guarda-chuva',
-    'handbag': 'bolsa',
-    'tie': 'gravata',
-    'suitcase': 'mala',
-    'frisbee': 'frisbee',
-    'skis': 'esquis',
-    'snowboard': 'snowboard',
-    'sports ball': 'bola',
-    'kite': 'pipa',
-    'baseball bat': 'taco de beisebol',
-    'baseball glove': 'luva de beisebol',
-    'skateboard': 'skate',
-    'surfboard': 'prancha de surf',
-    'tennis racket': 'raquete de tênis',
-    'bottle': 'garrafa',
-    'wine glass': 'taça de vinho',
-    'cup': 'xícara',
-    'fork': 'garfo',
-    'knife': 'faca',
-    'spoon': 'colher',
-    'bowl': 'tigela',
-    'banana': 'banana',
-    'apple': 'maçã',
-    'sandwich': 'sanduíche',
-    'orange': 'laranja',
-    'broccoli': 'brócolis',
-    'carrot': 'cenoura',
-    'hot dog': 'cachorro-quente',
-    'pizza': 'pizza',
-    'donut': 'rosquinha',
-    'cake': 'bolo',
-    'chair': 'cadeira',
-    'couch': 'sofá',
-    'potted plant': 'planta',
-    'bed': 'cama',
-    'dining table': 'mesa de jantar',
-    'toilet': 'vaso sanitário',
-    'tv': 'tv',
-    'laptop': 'notebook',
-    'mouse': 'mouse',
-    'remote': 'controle remoto',
-    'keyboard': 'teclado',
-    'cell phone': 'celular',
-    'microwave': 'micro-ondas',
-    'oven': 'forno',
-    'toaster': 'torradeira',
-    'sink': 'pia',
-    'refrigerator': 'geladeira',
-    'book': 'livro',
-    'clock': 'relógio',
-    'vase': 'vaso',
-    'scissors': 'tesoura',
-    'teddy bear': 'urso de pelúcia',
-    'hair drier': 'secador de cabelo',
-    'toothbrush': 'escova de dentes'
+  readonly busy = computed(() => this.phase() === 'loading' || this.phase() === 'starting');
+  readonly statusText = computed(() => (this.phase() === 'loading' ? this.t('loadingModel') : this.ct('starting')));
+  readonly errorText = computed(() => {
+    const err = this.error();
+    if (!err) return '';
+    return err.scope === 'camera' ? this.ct(err.key) : this.t(err.key);
+  });
+
+  get isCameraActive(): boolean {
+    return this.phase() === 'active';
+  }
+
+  private modelPromise: Promise<cocoSsd.ObjectDetection> | null = null;
+  private rafId: number | null = null;
+  /** Muda a cada start/stop: respostas de execuções antigas são descartadas. */
+  private runId = 0;
+  private cameraHeld = false;
+  private lastPredictions: cocoSsd.DetectedObject[] = [];
+  private lastSeen = new Map<string, number>();
+  private percent: { lang: Lang; format: Intl.NumberFormat } | null = null;
+  private observer: IntersectionObserver | null = null;
+  private readonly onVisibility = () => {
+    if (document.hidden) this.stopCamera();
   };
 
-  constructor(private cameraService: CameraService) { }
-
-  async ngAfterViewInit() {
-    // Defer model loading to prevent UI blocking during tab switch
-    setTimeout(async () => {
-      try {
-        this.model = await cocoSsd.load();
-        this.loadingStatus = null;
-      } catch (err) {
-        this.error = 'Failed to load TensorFlow model.';
-        this.loadingStatus = null;
-        console.error(err);
-      }
-    }, 500);
-  }
-
-  async startCamera() {
-    this.error = null;
-    if (!this.model) return;
-
-    this.loadingStatus = 'Iniciando câmera...';
-
-    try {
-      const stream = await this.cameraService.startCamera();
-
-      if (this.videoElement && this.videoElement.nativeElement) {
-        this.videoElement.nativeElement.srcObject = stream;
-        this.videoElement.nativeElement.onloadedmetadata = () => {
-          this.videoElement.nativeElement.play();
-          this.isCameraActive = true;
-          this.loadingStatus = null;
-          this.detectFrame();
-        };
-      }
-    } catch (err) {
-      this.error = 'Could not access camera. Please allow camera permissions.';
-      this.loadingStatus = null;
-      console.error(err);
-    }
-  }
-
-  async checkPermissionsAndStart() {
-    try {
-      if (navigator.permissions && navigator.permissions.query) {
-        const result = await navigator.permissions.query({ name: 'camera' as any });
-        if (result.state === 'granted') {
-          this.startCamera();
-          return;
-        }
-      }
-    } catch (e) {
-      console.log('Permission check failed', e);
-    }
-    this.loadingStatus = null;
-  }
-
-  stopCamera() {
-    if (this.videoElement && this.videoElement.nativeElement.srcObject) {
-      this.videoElement.nativeElement.srcObject = null;
-    }
-    this.cameraService.stopCamera();
-    this.isCameraActive = false;
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-    }
-    // Clear canvas
-    const canvas = this.canvasElement.nativeElement;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-  }
-
-  detectFrame = () => {
-    if (!this.isCameraActive || !this.model) return;
-
-    this.model.detect(this.videoElement.nativeElement).then(predictions => {
-      this.renderPredictions(predictions);
-      this.animationId = requestAnimationFrame(this.detectFrame);
+  constructor(private cameraService: CameraService) {
+    // Os rótulos são desenhados no canvas: ao trocar o idioma, redesenha o último quadro.
+    effect(() => {
+      this.i18n.lang();
+      if (this.phase() === 'active') this.renderPredictions(this.lastPredictions);
     });
+  }
+
+  ngAfterViewInit(): void {
+    if (typeof IntersectionObserver !== 'undefined') {
+      // Fora da tela a câmera é desligada (privacidade e bateria).
+      this.observer = new IntersectionObserver((entries) => {
+        if (!entries.some((e) => e.isIntersecting) && this.phase() !== 'idle' && this.phase() !== 'error') {
+          this.zone.run(() => this.stopCamera());
+        }
+      });
+      this.observer.observe(this.host.nativeElement);
+    }
+    document.addEventListener('visibilitychange', this.onVisibility);
+  }
+
+  ngOnDestroy(): void {
+    this.observer?.disconnect();
+    document.removeEventListener('visibilitychange', this.onVisibility);
+    this.stopCamera();
+  }
+
+  labelFor(cls: string): string {
+    return this.label(cls as CocoKey);
+  }
+
+  async startCamera(): Promise<void> {
+    if (this.busy() || this.phase() === 'active') return;
+    const run = ++this.runId;
+    this.error.set(null);
+    this.phase.set(this.model ? 'starting' : 'loading');
+
+    // Modelo e câmera em paralelo: o pedido de permissão aparece logo após o clique.
+    const modelReady = this.loadModel();
+    modelReady.catch(() => undefined);
+
+    let stream: MediaStream;
+    try {
+      stream = await this.cameraService.startCamera();
+    } catch (err) {
+      if (run === this.runId) this.fail({ scope: 'camera', key: cameraErrorKey(CameraService.errorKind(err)) });
+      return;
+    }
+    this.cameraHeld = true;
+    if (run !== this.runId) {
+      this.releaseCamera();
+      return;
+    }
+
+    try {
+      await modelReady;
+    } catch (err) {
+      console.error(err);
+      if (run === this.runId) this.fail({ scope: 'own', key: 'modelError' });
+      return;
+    }
+    if (run !== this.runId) return;
+
+    this.phase.set('starting');
+    const video = this.videoElement.nativeElement;
+    video.srcObject = stream;
+    try {
+      if (video.readyState < 1) {
+        await new Promise<void>((resolve) => video.addEventListener('loadedmetadata', () => resolve(), { once: true }));
+      }
+      await video.play();
+    } catch (err) {
+      if (run === this.runId) this.fail({ scope: 'camera', key: 'unknown' });
+      return;
+    }
+    if (run !== this.runId) return;
+
+    this.phase.set('active');
+    this.zone.runOutsideAngular(() => this.detectFrame());
+  }
+
+  stopCamera(): void {
+    this.runId++;
+    this.teardown();
+    this.error.set(null);
+    this.phase.set('idle');
+  }
+
+  private fail(error: ErrorRef): void {
+    this.runId++;
+    this.teardown();
+    this.error.set(error);
+    this.phase.set('error');
+  }
+
+  private teardown(): void {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    const video = this.videoElement?.nativeElement;
+    if (video) {
+      video.pause();
+      video.srcObject = null;
+    }
+    this.releaseCamera();
+    this.lastPredictions = [];
+    this.lastSeen.clear();
+    this.detected.set([]);
+    const canvas = this.canvasElement?.nativeElement;
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  private releaseCamera(): void {
+    if (this.cameraHeld) {
+      this.cameraHeld = false;
+      this.cameraService.stopCamera();
+    }
+  }
+
+  private loadModel(): Promise<cocoSsd.ObjectDetection> {
+    if (!this.modelPromise) {
+      this.modelPromise = cocoSsd.load().then(
+        (model) => (this.model = model),
+        (err) => {
+          // Permite nova tentativa depois de uma falha de rede.
+          this.modelPromise = null;
+          throw err;
+        },
+      );
+    }
+    return this.modelPromise;
+  }
+
+  private detectFrame = (): void => {
+    if (this.phase() !== 'active' || !this.model) return;
+    const run = this.runId;
+    const next = () => {
+      if (run === this.runId) this.rafId = requestAnimationFrame(this.detectFrame);
+    };
+    this.model.detect(this.videoElement.nativeElement).then((predictions) => {
+      if (run !== this.runId) return;
+      this.lastPredictions = predictions;
+      this.renderPredictions(predictions);
+      this.updateDetected(predictions);
+      next();
+    }, next);
   };
 
-  renderPredictions(predictions: cocoSsd.DetectedObject[]) {
-    const canvas = this.canvasElement.nativeElement;
-    const video = this.videoElement.nativeElement;
-    const ctx = canvas.getContext('2d');
+  renderPredictions(predictions: cocoSsd.DetectedObject[]): void {
+    const canvas = this.canvasElement?.nativeElement;
+    const video = this.videoElement?.nativeElement;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !video || !ctx || !video.videoWidth) return;
 
-    if (!ctx) return;
-
-    // Match canvas size to video size
     if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
     }
 
+    // O canvas tem a resolução do vídeo e é reduzido por CSS: compensa para o texto
+    // ficar com ~13 px na tela em qualquer largura.
+    const scale = canvas.clientWidth ? canvas.width / canvas.clientWidth : 1;
+    const fontSize = Math.round(13 * scale);
+    const pad = Math.round(5 * scale);
+    const line = Math.max(2, Math.round(2.5 * scale));
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = '16px sans-serif';
-    ctx.textBaseline = 'top';
+    ctx.font = `600 ${fontSize}px Montserrat, system-ui, sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = line;
+    ctx.lineJoin = 'round';
 
-    predictions.forEach(prediction => {
-      const x = prediction.bbox[0];
-      const y = prediction.bbox[1];
-      const width = prediction.bbox[2];
-      const height = prediction.bbox[3];
+    for (const prediction of predictions) {
+      const [x, y, width, height] = prediction.bbox;
+      const text = `${this.labelFor(prediction.class)} ${this.formatPercent(prediction.score)}`;
+      const textWidth = ctx.measureText(text).width;
+      const tagHeight = fontSize + pad * 2;
+      // A etiqueta fica acima da caixa; se não couber, entra na caixa.
+      const tagY = y - tagHeight >= 0 ? y - tagHeight : y;
+      const tagX = Math.min(Math.max(0, x - line / 2), Math.max(0, canvas.width - textWidth - pad * 2));
 
-      // Draw bounding box
-      ctx.strokeStyle = '#00FFFF';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = BOX_COLOR;
       ctx.strokeRect(x, y, width, height);
-
-      // Translate label
-      const label = this.getTranslatedLabel(prediction.class);
-
-      // Draw label background
-      ctx.fillStyle = '#00FFFF';
-      const textWidth = ctx.measureText(label).width;
-      ctx.fillRect(x, y, textWidth + 4, 20);
-
-      // Draw label text
-      ctx.fillStyle = '#000000';
-      ctx.fillText(label, x + 2, y + 2);
-    });
-  }
-
-  private getTranslatedLabel(label: string): string {
-    const lang = navigator.language.toLowerCase();
-    if (lang.startsWith('pt')) {
-      return this.translations[label.toLowerCase()] || label;
+      ctx.fillStyle = BOX_COLOR;
+      ctx.fillRect(tagX, tagY, textWidth + pad * 2, tagHeight);
+      ctx.fillStyle = BOX_INK;
+      ctx.fillText(text, tagX + pad, tagY + tagHeight / 2);
     }
-    return label;
   }
 
-  ngOnDestroy() {
-    this.stopCamera();
+  private formatPercent(score: number): string {
+    const lang = this.i18n.lang();
+    if (!this.percent || this.percent.lang !== lang) {
+      this.percent = {
+        lang,
+        format: new Intl.NumberFormat(this.i18n.locale(), { style: 'percent', maximumFractionDigits: 0 }),
+      };
+    }
+    return this.percent.format.format(score);
+  }
+
+  private updateDetected(predictions: cocoSsd.DetectedObject[]): void {
+    const now = performance.now();
+    for (const prediction of predictions) this.lastSeen.set(prediction.class, now);
+    for (const [cls, seen] of this.lastSeen) {
+      if (now - seen > LINGER_MS) this.lastSeen.delete(cls);
+    }
+    const current = [...this.lastSeen.keys()].sort();
+    const previous = this.detected();
+    if (current.length !== previous.length || current.some((cls, i) => cls !== previous[i])) {
+      this.zone.run(() => this.detected.set(current));
+    }
   }
 }

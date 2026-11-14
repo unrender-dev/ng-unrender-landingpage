@@ -1,0 +1,991 @@
+:host {
+  display: block;
+  --pol-bg: #0a0412;
+  --pol-panel: #130724;
+  --pol-line: rgba(255, 255, 255, 0.1);
+  --pol-text: #d7dae0;
+  --pol-muted: #a7abb6;
+  --pol-accent: var(--unrender-accent, #f99126);
+  --pol-ok: #6ee7b7;
+}
+
+.pol {
+  min-height: 100vh;
+  background: var(--pol-bg);
+  color: var(--pol-text);
+  // Texto jurídico longo: 15 px no celular, 16 px a partir do tablet, entrelinha folgada.
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+
+  @media (min-width: 640px) {
+    font-size: 1rem;
+  }
+}
+
+a,
+button {
+  &:focus-visible {
+    outline: 2px solid var(--pol-accent);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+}
+
+// ---------- Topo ----------
+.pol-hero {
+  padding: 6.5rem 0 2.5rem;
+  border-bottom: 1px solid var(--pol-line);
+  background:
+    radial-gradient(60rem 22rem at 20% -10%, rgba(249, 145, 38, 0.1), transparent 70%),
+    linear-gradient(to bottom, var(--pol-panel), #0e051b 55%, var(--pol-bg));
+
+  @media (min-width: 640px) {
+    padding: 8rem 0 4rem;
+  }
+}
+
+.pol-hero__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.pol-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pol-text);
+  transition: color 0.2s ease;
+
+  i {
+    color: var(--pol-accent);
+    transition: transform 0.2s ease;
+  }
+
+  &:hover {
+    color: var(--pol-accent);
+
+    i {
+      transform: translateX(-3px);
+    }
+  }
+}
+
+.pol-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pol-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid;
+  border-radius: 999px;
+
+  &--ok {
+    color: var(--pol-ok);
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+
+  &--accent {
+    font-weight: 600;
+    color: var(--pol-accent);
+    background: rgba(249, 145, 38, 0.15);
+    border-color: rgba(249, 145, 38, 0.3);
+  }
+}
+
+.pol-badge__dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #34d399;
+  // Vai e volta (alternate): o pulso não tem ponto de emenda.
+  animation: pol-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.pol-kicker {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pol-accent);
+}
+
+.pol-h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 1.2rem + 2.6vw, 3rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-wrap: balance;
+
+  span {
+    color: var(--pol-accent);
+  }
+}
+
+.pol-lead {
+  max-width: 48rem;
+  margin: 1rem 0 0;
+
+  @media (min-width: 1024px) {
+    font-size: 1.125rem;
+  }
+}
+
+.pol-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.pol-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.75rem;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+
+  i {
+    color: var(--pol-accent);
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &.is-done i {
+    color: var(--pol-ok);
+    animation: pol-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  &--accent {
+    color: var(--pol-accent);
+    background: rgba(249, 145, 38, 0.15);
+    border-color: rgba(249, 145, 38, 0.3);
+
+    &:hover {
+      background: rgba(249, 145, 38, 0.25);
+    }
+  }
+}
+
+// ---------- Índice ----------
+.pol-aside {
+  @media (min-width: 1024px) {
+    position: sticky;
+    top: 6rem;
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+  }
+}
+
+.pol-index {
+  padding: 0.5rem;
+  background: var(--pol-panel);
+  border: 1px solid var(--pol-line);
+  border-radius: 1rem;
+
+  @media (min-width: 1024px) {
+    padding: 1.25rem;
+  }
+}
+
+.pol-index__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0.5rem;
+  text-align: left;
+
+  &--static {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    &--toggle {
+      display: none;
+    }
+
+    &--static {
+      display: flex;
+      min-height: 0;
+      padding: 0 0 1rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--pol-line);
+    }
+  }
+}
+
+.pol-index__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pol-accent);
+}
+
+.pol-index__count {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--pol-muted);
+}
+
+.pol-index__chev {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--pol-muted);
+  transition: transform 0.25s ease;
+
+  &.is-open {
+    transform: rotate(180deg);
+  }
+}
+
+.pol-index__list {
+  display: none;
+  margin: 0;
+  padding: 0.25rem 0 0;
+  list-style: none;
+
+  &.is-open {
+    display: block;
+    animation: pol-in 0.25s ease-out both;
+  }
+
+  @media (min-width: 1024px) {
+    display: block;
+    padding: 0;
+
+    &.is-open {
+      animation: none;
+    }
+  }
+}
+
+.pol-index__link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--pol-text);
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+
+  i {
+    flex: none;
+    width: 1rem;
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+
+  &:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  &.is-active {
+    font-weight: 600;
+    color: var(--pol-accent);
+    background: rgba(249, 145, 38, 0.16);
+    border-color: rgba(249, 145, 38, 0.4);
+  }
+}
+
+.pol-index__num {
+  flex: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--pol-accent);
+  opacity: 0.8;
+}
+
+.pol-index__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pol-dpo-box {
+  display: none;
+  margin-top: 1rem;
+  padding: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--pol-muted);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--pol-line);
+  border-radius: 0.75rem;
+
+  @media (min-width: 1024px) {
+    display: block;
+  }
+
+  p {
+    margin: 0 0 0.5rem;
+  }
+
+  a {
+    color: var(--pol-accent);
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.pol-dpo-box__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #fff;
+
+  i {
+    color: var(--pol-accent);
+  }
+}
+
+// ---------- Seções ----------
+.pol-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  @media (min-width: 640px) {
+    gap: 3rem;
+  }
+}
+
+.pol-sec {
+  // A navbar é fixa: a âncora para um pouco abaixo dela.
+  scroll-margin-top: 6rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--pol-line);
+  border-radius: 1rem;
+
+  @media (min-width: 640px) {
+    padding: 2rem;
+  }
+
+  > * + * {
+    margin-top: 1rem;
+  }
+
+  p {
+    margin-bottom: 0;
+  }
+}
+
+.pol-sec__kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--pol-accent);
+}
+
+.pol-sec__num {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0;
+  background: rgba(249, 145, 38, 0.2);
+  border-radius: 0.375rem;
+}
+
+.pol-sec .pol-h2 {
+  margin: 0.5rem 0 1.25rem;
+  font-size: clamp(1.375rem, 1.15rem + 1.1vw, 1.875rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: #fff;
+  text-wrap: balance;
+}
+
+.pol-h3 {
+  margin-top: 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pol-muted {
+  color: var(--pol-muted);
+}
+
+// Trechos com marcação vinda do dicionário (innerHTML): estiliza <strong> e <a> injetados.
+.pol-rich ::ng-deep {
+  strong {
+    font-weight: 700;
+    color: #fff;
+  }
+
+  a {
+    font-weight: 600;
+    color: var(--pol-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.pol-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.875rem;
+
+  @media (min-width: 640px) {
+    &--2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 768px) {
+    &--3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+}
+
+.pol-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.pol-card {
+  min-width: 0;
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--pol-line);
+  border-radius: 0.75rem;
+
+  &--solid {
+    background: var(--pol-panel);
+  }
+
+  &--accent {
+    border-color: rgba(249, 145, 38, 0.3);
+  }
+
+  p {
+    margin: 0;
+  }
+
+  > * + * {
+    margin-top: 0.5rem;
+  }
+}
+
+.pol-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+.pol-card__title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #fff;
+
+  i {
+    flex: none;
+    color: var(--pol-accent);
+  }
+
+  &--lg {
+    font-size: 1rem;
+    color: var(--pol-accent);
+  }
+
+  &--ok {
+    color: var(--pol-ok);
+
+    i {
+      color: inherit;
+    }
+  }
+}
+
+.pol-card__icon {
+  font-size: 1.25rem;
+  color: var(--pol-accent);
+}
+
+.pol-card__strong {
+  display: block;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.pol-card__line {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.pol-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pol-muted);
+
+  &--ok {
+    color: var(--pol-ok);
+  }
+}
+
+.pol-chip {
+  flex: none;
+  max-width: 100%;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  color: var(--pol-text);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+.pol-list {
+  margin-bottom: 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--pol-muted);
+
+  li + li {
+    margin-top: 0.25rem;
+  }
+
+  &--spaced li + li {
+    margin-top: 0.625rem;
+  }
+
+  > li > strong {
+    color: #e5e7eb;
+  }
+
+  @media (min-width: 640px) {
+    font-size: 0.9375rem;
+  }
+}
+
+.pol-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  background: rgba(249, 145, 38, 0.1);
+  border: 1px solid rgba(249, 145, 38, 0.25);
+  border-radius: 0.75rem;
+
+  > i {
+    flex: none;
+    margin-top: 0.2rem;
+    font-size: 1.125rem;
+    color: var(--pol-accent);
+  }
+
+  > div {
+    min-width: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  &--neutral {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  // No celular o ícone sobe para cima do texto: a coluna do ícone não rouba largura de leitura.
+  @media (max-width: 639.98px) {
+    flex-direction: column;
+    gap: 0.5rem;
+
+    > i {
+      margin-top: 0;
+    }
+  }
+
+  @media (min-width: 640px) {
+    padding: 1.25rem;
+    font-size: 0.9375rem;
+  }
+}
+
+.pol-callout__title {
+  display: block;
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pol-notice {
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #fecdd3;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  border-radius: 0.75rem;
+
+  @media (min-width: 640px) {
+    font-size: 0.9375rem;
+  }
+}
+
+.pol-rights {
+  margin-bottom: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pol-right {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+
+  > i {
+    flex: none;
+    margin-top: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--pol-ok);
+  }
+
+  > div {
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  strong {
+    display: block;
+    color: #fff;
+  }
+}
+
+.pol-contacts {
+  margin-bottom: 0;
+
+  dt {
+    font-size: 0.8125rem;
+    color: var(--pol-muted);
+  }
+
+  dd {
+    margin: 0;
+    color: #fff;
+  }
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--pol-accent);
+    }
+  }
+}
+
+.pol-contacts__accent {
+  font-weight: 600;
+  color: var(--pol-accent);
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ---------- Tabela de bases legais ----------
+.pol-table {
+  width: 100%;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: left;
+  border-collapse: collapse;
+
+  thead th {
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--pol-muted);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  tbody th,
+  tbody td {
+    padding: 0.75rem;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  tbody th {
+    font-weight: 600;
+    color: #fff;
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+}
+
+.pol-table__basis {
+  color: var(--pol-accent);
+}
+
+// Até 639 px a tabela vira uma pilha de cartões: cada célula mostra o nome da coluna.
+@media (max-width: 639.98px) {
+  .pol-table,
+  .pol-table tbody,
+  .pol-table tr,
+  .pol-table tbody th,
+  .pol-table tbody td {
+    display: block;
+  }
+
+  // Cabeçalho continua disponível para leitores de tela.
+  .pol-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pol-table tbody tr {
+    padding: 0.875rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--pol-line);
+    border-radius: 0.75rem;
+
+    & + tr {
+      margin-top: 0.75rem;
+    }
+  }
+
+  .pol-table tbody th,
+  .pol-table tbody td {
+    padding: 0;
+    border: 0;
+
+    &::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--pol-muted);
+    }
+
+    & + td {
+      margin-top: 0.625rem;
+    }
+  }
+}
+
+.pol-top {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pol-text);
+  transition: color 0.2s ease;
+
+  i {
+    color: var(--pol-accent);
+  }
+
+  &:hover {
+    color: var(--pol-accent);
+  }
+}
+
+.pol-footer {
+  padding-top: 2rem;
+  border-top: 1px solid var(--pol-line);
+}
+
+@keyframes pol-pulse {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes pol-pop {
+  from {
+    transform: scale(0.4);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes pol-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pol-badge__dot,
+  .pol-btn.is-done i,
+  .pol-index__list.is-open {
+    animation: none;
+  }
+
+  .pol-back,
+  .pol-back i,
+  .pol-btn,
+  .pol-index__chev,
+  .pol-index__link {
+    transition: none;
+  }
+}
+
+// ---------- Impressão / PDF: papel branco, texto escuro, sem navegação ----------
+@media print {
+  // A navbar vive fora deste componente; some só durante a impressão.
+  ::ng-deep app-navbar {
+    display: none !important;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  :host {
+    --pol-bg: #fff;
+    --pol-panel: #fff;
+    --pol-line: #d1d5db;
+    --pol-text: #1f2937;
+    --pol-muted: #4b5563;
+    --pol-accent: #b45309;
+    --pol-ok: #047857;
+  }
+
+  .pol,
+  .pol-hero {
+    background: #fff !important;
+  }
+
+  .pol-hero {
+    padding: 0 0 1.5rem;
+  }
+
+  .pol-h1,
+  .pol-sec .pol-h2,
+  .pol-h3,
+  .pol-card__title,
+  .pol-card__strong,
+  .pol-callout__title,
+  .pol-table tbody th,
+  .pol-right strong,
+  .pol-contacts dd,
+  .pol-list > li > strong,
+  .pol-rich ::ng-deep strong {
+    color: #111827 !important;
+  }
+
+  .pol-notice {
+    color: #9f1239;
+  }
+
+  .pol-sec,
+  .pol-card,
+  .pol-callout,
+  .pol-notice {
+    background: #fff !important;
+    break-inside: avoid;
+  }
+
+  .pol-content {
+    gap: 1rem;
+  }
+}

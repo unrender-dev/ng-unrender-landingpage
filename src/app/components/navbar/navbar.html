@@ -1,110 +1,84 @@
-<nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-  [ngClass]="{ 'bg-white shadow-lg': isScrolled, 'backdrop-blur-sm': !isScrolled }">
+<nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-300" [attr.aria-label]="t('main')"
+  [ngClass]="{ 'bg-white shadow-lg': isScrolled || isMobileMenuOpen, 'backdrop-blur-sm': !isScrolled && !isMobileMenuOpen }">
   <div class="container mx-auto px-4">
     <div class="flex items-center justify-between h-16 lg:h-20">
       <a class="flex items-center space-x-2 text-xl font-bold transition-transform duration-300 hover:scale-105"
         routerLink="/inicio" (click)="handleNavigation($event, '/inicio')"
-        [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }">
-        <img class="w-10 h-10 object-contain" src="unrender-logo-small.png" alt="Unrender Logo" />
+        [ngClass]="solid ? 'text-gray-900' : 'text-white'">
+        <img class="w-10 h-10 object-contain" src="unrender-logo-small.png" alt="" width="40" height="40" />
         <span>UNRENDER</span>
       </a>
 
-      <button class="lg:hidden p-2 rounded-md transition-colors duration-300"
-        [ngClass]="{ 'hover:bg-gray-100': isScrolled, 'hover:bg-white/10': !isScrolled }" type="button"
-        (click)="toggleMobileMenu()" aria-label="Toggle navigation">
-        <svg class="w-6 h-6" [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }" fill="none"
-          stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
-      <div class="hidden lg:flex lg:items-center lg:space-x-8">
-        <ul class="flex space-x-8">
+      <div class="flex items-center gap-1 lg:gap-8">
+        <div class="hidden lg:flex lg:items-center">
+        <ul class="flex items-center space-x-8">
+          @for (link of links; track link.key) {
           <li>
-            <a class="transition-colors duration-300 hover:text-unrender-accent"
-              [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }" routerLink="/inicio"
-              (click)="handleNavigation($event, '/inicio')">Início</a>
+            <a class="nav-anchor inline-flex items-center gap-1.5 transition-colors duration-300 hover:text-unrender-accent"
+              [ngClass]="solid ? 'text-gray-900' : 'text-white'" [routerLink]="link.path" [fragment]="link.fragment"
+              (click)="handleNavigation($event, link.path, link.fragment)">
+              @if (link.icon) {
+              <i [class]="link.icon + ' text-xs'" aria-hidden="true"></i>
+              }
+              <span>{{ t(link.key) }}</span>
+            </a>
           </li>
-          <li>
-            <a class="transition-colors duration-300 hover:text-unrender-accent"
-              [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }" routerLink="/inicio"
-              fragment="sistemas" (click)="handleNavigation($event, '/inicio', 'sistemas')">Sistemas</a>
-          </li>
-          <li>
-            <a class="transition-colors duration-300 hover:text-unrender-accent"
-              [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }" routerLink="/inicio"
-              fragment="serviços" (click)="handleNavigation($event, '/inicio', 'serviços')">Serviços</a>
-          </li>
-          <!-- Ecossistema disabled; replace with Trabalhe Conosco -->
-          <li>
-            <a class="transition-colors duration-300 hover:text-unrender-accent"
-              [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }" routerLink="/inicio"
-              fragment="contato" (click)="handleNavigation($event, '/inicio', 'contato')">Contato</a>
-          </li>
-          <li>
-            <a class="transition-colors duration-300 hover:text-unrender-accent"
-              [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }" routerLink="/sobre"
-              (click)="handleNavigation($event, '/sobre')">Sobre</a>
-          </li>
-          <li>
-            <a class="transition-colors duration-300 hover:text-unrender-accent"
-              [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }" href="https://unrender.games/"
-              target="_blank">Games</a>
-          </li>
-          <li>
-            <a class="transition-colors duration-300 hover:text-unrender-accent"
-              [ngClass]="{ 'text-gray-900': isScrolled, 'text-white': !isScrolled }" routerLink="/sobre"
-              fragment="trabalhe-conosco" (click)="handleNavigation($event, '/sobre', 'trabalhe-conosco')">Trabalhe
-              Conosco</a>
-          </li>
+          }
         </ul>
+        </div>
+
+        <!-- Seletor de idioma -->
+        <div class="lang" (keydown.escape)="closeLangMenu()">
+          <button type="button" class="lang__button" [ngClass]="solid ? 'lang__button--solid' : ''"
+            [attr.aria-expanded]="isLangMenuOpen" aria-haspopup="listbox" [attr.aria-label]="t('language')"
+            (click)="toggleLangMenu($event)">
+            <i class="fa-solid fa-globe" aria-hidden="true"></i>
+            <span>{{ currentLang.short }}</span>
+            <i class="fa-solid fa-chevron-down lang__caret" [class.is-open]="isLangMenuOpen" aria-hidden="true"></i>
+          </button>
+          <ul class="lang__menu" [class.is-open]="isLangMenuOpen" role="listbox" [attr.aria-label]="t('language')">
+            @for (l of i18n.langs; track l.code) {
+            <li role="option" [attr.aria-selected]="l.code === i18n.lang()">
+              <button type="button" class="lang__option" [class.is-active]="l.code === i18n.lang()"
+                [attr.lang]="l.locale" [attr.tabindex]="isLangMenuOpen ? 0 : -1" (click)="setLang(l.code)">
+                <span class="lang__code">{{ l.short }}</span>
+                <span>{{ l.label }}</span>
+                @if (l.code === i18n.lang()) {
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+                }
+              </button>
+            </li>
+            }
+          </ul>
+        </div>
+
+        <button class="lg:hidden w-11 h-11 grid place-items-center rounded-md transition-colors duration-300"
+          [ngClass]="solid ? 'hover:bg-gray-100 text-gray-900' : 'hover:bg-white/10 text-white'" type="button"
+          (click)="toggleMobileMenu()" [attr.aria-label]="t(isMobileMenuOpen ? 'closeMenu' : 'openMenu')"
+          [attr.aria-expanded]="isMobileMenuOpen" aria-controls="mobile-menu">
+          <i class="fa-solid text-xl" [ngClass]="isMobileMenuOpen ? 'fa-xmark' : 'fa-bars'" aria-hidden="true"></i>
+        </button>
       </div>
     </div>
 
-    <!-- Mobile menu -->
-    <div class="lg:hidden overflow-hidden transition-all duration-300"
-      [ngClass]="{ 'max-h-96': isMobileMenuOpen, 'max-h-0': !isMobileMenuOpen }">
-      <ul class="py-4 space-y-2">
+    <!-- Menu do celular -->
+    <div id="mobile-menu" class="mobile-menu lg:hidden" [class.is-open]="isMobileMenuOpen">
+      <div class="mobile-menu__inner">
+      <ul class="py-3 space-y-1">
+        @for (link of links; track link.key) {
         <li>
-          <a class="block px-4 py-2 rounded-md transition-colors duration-300 hover:bg-gray-100"
-            [ngClass]="{ 'text-gray-900': isScrolled, 'text-white hover:bg-white/10': !isScrolled }"
-            routerLink="/inicio" (click)="closeMobileMenu(); handleNavigation($event, '/inicio')">Início</a>
+          <a class="flex items-center gap-2 px-4 py-3 rounded-md text-gray-900 transition-colors duration-300 hover:bg-gray-100"
+            [routerLink]="link.path" [fragment]="link.fragment" [attr.tabindex]="isMobileMenuOpen ? 0 : -1"
+            (click)="closeMobileMenu(); handleNavigation($event, link.path, link.fragment)">
+            @if (link.icon) {
+            <i [class]="link.icon + ' text-xs'" aria-hidden="true"></i>
+            }
+            <span>{{ t(link.key) }}</span>
+          </a>
         </li>
-        <li>
-          <a class="block px-4 py-2 rounded-md transition-colors duration-300 hover:bg-gray-100"
-            [ngClass]="{ 'text-gray-900': isScrolled, 'text-white hover:bg-white/10': !isScrolled }"
-            routerLink="/inicio" fragment="sistemas"
-            (click)="closeMobileMenu(); handleNavigation($event, '/inicio', 'sistemas')">Sistemas</a>
-        </li>
-        <li>
-          <a class="block px-4 py-2 rounded-md transition-colors duration-300 hover:bg-gray-100"
-            [ngClass]="{ 'text-gray-900': isScrolled, 'text-white hover:bg-white/10': !isScrolled }"
-            routerLink="/inicio" fragment="serviços"
-            (click)="closeMobileMenu(); handleNavigation($event, '/inicio', 'serviços')">Serviços</a>
-        </li>
-        <li>
-          <a class="block px-4 py-2 rounded-md transition-colors duration-300 hover:bg-gray-100"
-            [ngClass]="{ 'text-gray-900': isScrolled, 'text-white hover:bg-white/10': !isScrolled }"
-            routerLink="/inicio" fragment="contato"
-            (click)="closeMobileMenu(); handleNavigation($event, '/inicio', 'contato')">Contato</a>
-        </li>
-        <li>
-          <a class="block px-4 py-2 rounded-md transition-colors duration-300 hover:bg-gray-100"
-            [ngClass]="{ 'text-gray-900': isScrolled, 'text-white hover:bg-white/10': !isScrolled }" routerLink="/sobre"
-            (click)="closeMobileMenu(); handleNavigation($event, '/sobre')">Sobre</a>
-        </li>
-        <li>
-          <a class="block px-4 py-2 rounded-md transition-colors duration-300 hover:bg-gray-100"
-            [ngClass]="{ 'text-gray-900': isScrolled, 'text-white hover:bg-white/10': !isScrolled }"
-            href="https://unrender.games/" target="_blank">Games</a>
-        </li>
-        <li>
-          <a class="block px-4 py-2 rounded-md transition-colors duration-300 hover:bg-gray-100"
-            [ngClass]="{ 'text-gray-900': isScrolled, 'text-white hover:bg-white/10': !isScrolled }" routerLink="/sobre"
-            fragment="trabalhe-conosco"
-            (click)="closeMobileMenu(); handleNavigation($event, '/sobre', 'trabalhe-conosco')">Trabalhe Conosco</a>
-        </li>
+        }
       </ul>
+      </div>
     </div>
   </div>
 </nav>

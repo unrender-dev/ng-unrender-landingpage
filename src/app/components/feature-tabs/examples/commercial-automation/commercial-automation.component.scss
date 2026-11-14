@@ -1,18 +1,1148 @@
-@keyframes printReceipt {
-  0% {
-    transform: translateY(100%);
-    opacity: 0;
+// PDV de demonstração + simulação de impressora térmica.
+// O layout responde à largura da área da feature (container queries), não à da janela.
+$mono: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+
+:host {
+  display: block;
+  container-type: inline-size;
+}
+
+.ca {
+  --ca-purple: #10051c;
+  --ca-accent: #f99126;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px;
+  background: #fff;
+  border-radius: 12px;
+  color: #1e293b;
+
+  :is(a, button):focus-visible {
+    outline: 2px solid var(--ca-accent);
+    outline-offset: 2px;
   }
-  100% {
-    transform: translateY(0);
+}
+
+.ca-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@container (min-width: 560px) {
+  .ca {
+    padding: 16px;
+    gap: 20px;
+  }
+
+  .ca-stage {
+    grid-template-columns: minmax(0, 1fr) clamp(230px, 36cqw, 330px);
+    gap: 20px;
+  }
+}
+
+// ───────────── PDV ─────────────
+
+.ca-pos {
+  container: ca-pos / inline-size;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 22px -14px rgba(16, 5, 28, 0.35);
+}
+
+.ca-pos-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--ca-purple);
+  color: #fff;
+}
+
+.ca-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.ca-brand-icon {
+  color: var(--ca-accent);
+}
+
+.ca-brand-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ca-chip {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(249, 145, 38, 0.45);
+  background: rgba(249, 145, 38, 0.16);
+  color: var(--ca-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ca-clock {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ca-pos-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ca-products {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.ca-product {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 78px;
+  padding: 8px 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    transform 0.14s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+
+  &:hover {
+    border-color: var(--ca-accent);
+    box-shadow: 0 6px 12px -8px rgba(16, 5, 28, 0.45);
+  }
+
+  &:active,
+  &.is-tapped {
+    transform: scale(0.95);
+  }
+
+  // Anel de toque: mesmo retorno visual para o dedo do usuário e para a vitrine.
+  &.is-tapped {
+    border-color: var(--ca-accent);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border: 2px solid var(--ca-accent);
+      border-radius: inherit;
+      pointer-events: none;
+      animation: ca-ring 0.38s ease-out both;
+    }
+  }
+}
+
+.ca-product-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(16, 5, 28, 0.06);
+  color: var(--ca-purple);
+  font-size: 14px;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+
+  .ca-product:hover &,
+  .ca-product.is-tapped & {
+    background: var(--ca-accent);
+  }
+}
+
+.ca-product-name {
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.ca-product-price {
+  color: var(--ca-purple);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ca-product-qty {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--ca-accent);
+  color: var(--ca-purple);
+  font-size: 10px;
+  font-weight: 800;
+  animation: ca-pop 0.24s ease-out;
+}
+
+.ca-cart {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.ca-cart-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ca-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+  &.is-on {
     opacity: 1;
   }
 }
 
-.animate-print-receipt {
-  animation: printReceipt 2s linear forwards;
+.ca-auto-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ca-accent);
+  animation: ca-pulse 1.6s ease-in-out infinite;
 }
 
-.perspective-1000 {
-    perspective: 1000px;
+// Altura fixa: o carrinho enche e esvazia sem empurrar o resto da página.
+.ca-cart-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 108px;
+  margin: 0;
+  padding: 4px 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  transition: opacity 0.24s ease;
+
+  &.is-clearing {
+    opacity: 0;
+  }
+}
+
+.ca-line {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding-left: 4px;
+  color: #334155;
+  font-size: 12px;
+  animation: ca-line-in 0.22s ease-out;
+}
+
+.ca-line-qty {
+  display: inline-block;
+  min-width: 20px;
+  color: var(--ca-purple);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transform-origin: left center;
+}
+
+.ca-line-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ca-line-price {
+  font-family: $mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+// Sempre visível (não depende de hover); no toque vira alvo de 44 px.
+.ca-line-remove {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.12s ease;
+
+  &:hover {
+    background: #fee2e2;
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+}
+
+@media (pointer: coarse) {
+  // Duas linhas e meia: a terceira aparece cortada e indica que a lista rola.
+  .ca-cart-list {
+    height: 114px;
+  }
+
+  .ca-line {
+    min-height: 44px;
+  }
+
+  .ca-line-remove {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.ca-empty {
+  margin: auto;
+  color: #64748b;
+  font-size: 12px;
+  font-style: italic;
+  animation: ca-fade 0.3s ease-out;
+}
+
+.ca-cart-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-top: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+
+.ca-total {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  span {
+    color: #475569;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    color: #166534;
+    font-family: $mono;
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+}
+
+.ca-pay {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #15803d;
+  box-shadow: 0 3px 0 #14532d;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+
+  &:hover:not(:disabled) {
+    background: #16a34a;
+  }
+
+  &:active:not(:disabled),
+  &.is-pressed {
+    box-shadow: 0 1px 0 #14532d;
+    transform: translateY(2px);
+  }
+
+  &:disabled {
+    background: #cbd5e1;
+    box-shadow: none;
+    color: #475569;
+    cursor: not-allowed;
+  }
+
+  &.is-busy:disabled {
+    background: var(--ca-purple);
+    color: #fff;
+    cursor: progress;
+  }
+
+  &.is-done:disabled {
+    background: #dcfce7;
+    color: #166534;
+  }
+}
+
+.ca-spin {
+  animation: ca-spin 0.9s linear infinite;
+}
+
+// Reserva a altura mesmo escondida, para não haver salto de layout.
+.ca-hint {
+  min-height: 28px;
+  margin: 0;
+  padding: 6px 10px;
+  border-top: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+  &.is-on {
+    opacity: 1;
+  }
+}
+
+// PDV largo: carrinho ao lado dos produtos.
+@container ca-pos (min-width: 430px) {
+  .ca-pos-body {
+    flex-direction: row;
+  }
+
+  .ca-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ca-cart {
+    width: 46%;
+    max-width: 270px;
+    border-top: 0;
+    border-left: 1px solid #e2e8f0;
+  }
+
+  .ca-cart-list {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 132px;
+  }
+
+  .ca-cart-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .ca-total {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .ca-pay {
+    flex: none;
+  }
+}
+
+@container ca-pos (min-width: 580px) {
+  .ca-products {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+// ───────────── Impressora (cena de 300×350 px escalada) ─────────────
+
+.ca-printer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ca-scene-wrap {
+  --ca-s: 1;
+  position: relative;
+  width: 100%;
+  max-width: 345px;
+  height: calc(350px * var(--ca-s));
+}
+
+.ca-scene {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 300px;
+  height: 350px;
+  transform: translateX(-50%) scale(var(--ca-s));
+  transform-origin: top center;
+
+  > * {
+    position: absolute;
+  }
+}
+
+.ca-table {
+  top: 323px;
+  right: 2px;
+  left: 2px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(16, 5, 28, 0.24), transparent);
+}
+
+.ca-lid {
+  z-index: 1;
+  top: 204px;
+  left: 18px;
+  width: 172px;
+  height: 46px;
+  border-radius: 22px 22px 6px 6px;
+  background: linear-gradient(180deg, #3b2558, #291640);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+// Fenda de saída do papel. O cupom é recortado exatamente no meio dela (y = 218).
+.ca-slot {
+  z-index: 2;
+  top: 213px;
+  left: 29px;
+  width: 150px;
+  height: 10px;
+  border-radius: 5px;
+  background: #06020b;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.9),
+    0 1px 0 rgba(255, 255, 255, 0.1);
+
+  // Cabeça térmica aquecida enquanto imprime.
+  &::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 3px;
+    left: 3px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--ca-accent);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  .is-printing &::after {
+    opacity: 0.85;
+  }
+}
+
+.ca-ticket-clip {
+  z-index: 10;
+  inset: 0;
+  // Só aparece o que já passou da fenda; nada do papel é visto "por trás" do corpo.
+  clip-path: inset(0 0 132px 0);
+  pointer-events: none;
+
+  // Depois do corte o cupom está solto e pode ir até a pilha.
+  &.is-free {
+    clip-path: none;
+  }
+}
+
+.ca-ticket {
+  position: absolute;
+  bottom: 132px;
+  left: 34px;
+  width: 140px;
+  // Começa todo dentro da impressora (abaixo da fenda).
+  transform: translateY(100%);
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 1px 1.5px rgba(16, 5, 28, 0.3));
+  will-change: transform;
+}
+
+.ca-paper {
+  --dente: 6px;
+  padding: 9px 8px 10px;
+  background: #fffdf7;
+  color: #1f2937;
+  font-family: $mono;
+  font-size: 8px;
+  // Bordas serrilhadas em cima e embaixo (marca do corte).
+  -webkit-mask:
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / var(--dente) 51% repeat-x,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--dente) 51% repeat-x;
+  mask:
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / var(--dente) 51% repeat-x,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--dente) 51% repeat-x;
+
+  .cl {
+    height: 11px;
+    overflow: hidden;
+    line-height: 11px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .cl-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+    text-align: left;
+  }
+
+  .cl-nm {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cl-hd {
+    height: 13px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    line-height: 13px;
+  }
+
+  .cl-sm {
+    font-size: 7.5px;
+  }
+
+  .cl-sep {
+    height: 7px;
+    background: linear-gradient(90deg, #9ca3af 50%, transparent 0) center / 5px 1px repeat-x;
+  }
+
+  .cl-tot {
+    height: 14px;
+    font-size: 9.5px;
+    font-weight: 800;
+    line-height: 14px;
+  }
+
+  .cl-bar {
+    height: 14px;
+    margin: 2px 12px;
+    background: repeating-linear-gradient(
+      90deg,
+      #111827 0 1px,
+      transparent 1px 3px,
+      #111827 3px 5px,
+      transparent 5px 6px,
+      #111827 6px 7px,
+      transparent 7px 10px
+    );
+  }
+
+  .cl-mute {
+    color: #6b7280;
+  }
+}
+
+.ca-blade {
+  z-index: 12;
+  top: 216px;
+  left: 31px;
+  width: 146px;
+  height: 3px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, #f8fafc, #94a3b8 60%, #e2e8f0);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.ca-body {
+  z-index: 3;
+  top: 240px;
+  left: 10px;
+  width: 188px;
+  height: 92px;
+  border-radius: 10px 10px 18px 18px;
+  background: linear-gradient(180deg, #24133c 0%, #160a26 55%, #10051c 100%);
+  box-shadow:
+    0 12px 14px -9px rgba(16, 5, 28, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 42px;
+    right: 0;
+    left: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  // Vibração leve do motor; amplitude mínima para o fim do ciclo não "pular".
+  .is-printing & {
+    animation: ca-buzz 0.11s ease-in-out infinite alternate;
+  }
+}
+
+.ca-panel {
+  position: absolute;
+  top: 15px;
+  right: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ca-led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.ca-led-power {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.9);
+}
+
+.ca-led-status {
+  background: #4a3a1c;
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
+
+  .is-printing & {
+    animation: ca-led 0.26s steps(1, end) infinite;
+  }
+
+  .is-cutting & {
+    background: var(--ca-accent);
+    box-shadow: 0 0 7px var(--ca-accent);
+  }
+}
+
+.ca-feed {
+  width: 34px;
+  height: 12px;
+  margin-left: auto;
+  border: 1px solid rgba(249, 145, 38, 0.6);
+  border-radius: 6px;
+  background: #3b2558;
+}
+
+.ca-badge {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  left: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.ca-wordmark {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+
+  i {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-left: 2px;
+    border-radius: 50%;
+    background: var(--ca-accent);
+  }
+}
+
+.ca-model {
+  color: #a593c4;
+  font-family: $mono;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.ca-tray-back {
+  z-index: 1;
+  top: 238px;
+  left: 208px;
+  width: 84px;
+  height: 94px;
+  border: 1px solid #d6cde4;
+  border-radius: 10px 10px 6px 6px;
+  background: #ece7f3;
+}
+
+.ca-tray-front {
+  z-index: 20;
+  top: 290px;
+  left: 203px;
+  display: grid;
+  place-items: center;
+  width: 94px;
+  height: 44px;
+  border: 1px solid #b9accf;
+  border-radius: 6px 6px 12px 12px;
+  background: linear-gradient(180deg, #ddd5ea, #c9bedb);
+  box-shadow: 0 8px 8px -7px rgba(16, 5, 28, 0.45);
+  color: #7c6b9b;
+  font-size: 14px;
+}
+
+.ca-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+  margin: 0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ca-status-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  transition: background-color 0.3s ease;
+
+  .is-printing &,
+  .is-cutting & {
+    background: var(--ca-accent);
+    animation: ca-pulse 0.8s ease-in-out infinite;
+  }
+}
+
+// ───────────── Atalhos da loja ─────────────
+
+.ca-shop {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--ca-purple);
+  color: #fff;
+}
+
+.ca-shop-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ca-shop-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.ca-shop-over {
+  display: block;
+  color: var(--ca-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ca-shop-title {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.ca-shop-actions {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ca-btn {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    transform 0.12s ease;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.ca-btn-ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.ca-btn-accent {
+  background: var(--ca-accent);
+  color: var(--ca-purple);
+
+  &:hover {
+    background: #fbbf24;
+  }
+}
+
+.ca-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.ca-hw {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.12s ease;
+
+  &:hover {
+    border-color: rgba(249, 145, 38, 0.6);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.ca-hw-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--ca-accent);
+  font-size: 12px;
+}
+
+.ca-hw-stock {
+  color: #34d399;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ca-hw-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.ca-hw-price {
+  color: #fcd34d;
+  font-size: 12px;
+  font-weight: 800;
+
+  small {
+    color: #cbd5e1;
+    font-size: 10px;
+    font-weight: 400;
+  }
+}
+
+// ───────────── Animações ─────────────
+
+@keyframes ca-ring {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.14);
+  }
+}
+
+@keyframes ca-pop {
+  from {
+    transform: scale(0.4);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes ca-line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ca-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// Vai e volta: o fim do ciclo é igual ao começo (sem salto).
+@keyframes ca-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes ca-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ca-buzz {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(0.5px);
+  }
+}
+
+// LED de status piscando em âmbar durante a impressão.
+@keyframes ca-led {
+  0% {
+    background: #f99126;
+    box-shadow: 0 0 7px #f99126;
+  }
+  50% {
+    background: #4a3a1c;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ca-product,
+  .ca-pay,
+  .ca-btn,
+  .ca-hw,
+  .ca-line-remove,
+  .ca-cart-list,
+  .ca-hint,
+  .ca-auto {
+    transition: none;
+  }
+
+  .ca-product.is-tapped::after,
+  .ca-product-qty,
+  .ca-line,
+  .ca-empty,
+  .ca-auto-dot,
+  .ca-spin,
+  .ca-status-dot,
+  .ca-body,
+  .ca-led-status {
+    animation: none !important;
+  }
+
+  .is-printing .ca-led-status {
+    background: var(--ca-accent);
+  }
 }

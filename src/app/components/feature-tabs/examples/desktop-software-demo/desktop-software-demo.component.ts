@@ -1,217 +1,233 @@
-import { Component, Input, OnInit, HostListener, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { ChatWidgetComponent } from '../../../chat-widget/chat-widget.component';
-import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import {
-  faWindowMinimize, faWindowMaximize, faTimes, faDesktop, faWifi, faVolumeUp, faBatteryFull,
-  faSearch, faThLarge, faCog, faFolder, faTerminal, faCode, faGlobe, faBrain
-} from '@fortawesome/free-solid-svg-icons';
-import { faMicrosoft, faApple, faUbuntu } from '@fortawesome/free-brands-svg-icons';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, NgZone, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import { I18nService } from '../../../../i18n/i18n.service';
+import { Showcase } from '../pwa-demo/showcase';
+import { I18N } from './desktop-software-demo.i18n';
 
+/** Capturas reais do SGA CTRLB (public/images/real-screens); `-dark` é o tema escuro. */
+const SCREENS = [
+  { key: 'dashboard', file: 'dashboard-live', label: 'tabDashboard', alt: 'altDashboard', icon: 'fa-solid fa-chart-line' },
+  { key: 'crm', file: 'crm-live', label: 'tabCrm', alt: 'altCrm', icon: 'fa-solid fa-filter' },
+  { key: 'agenda', file: 'agenda-live', label: 'tabAgenda', alt: 'altAgenda', icon: 'fa-regular fa-calendar' },
+  { key: 'chat', file: 'conversas-live', label: 'tabChat', alt: 'altChat', icon: 'fa-solid fa-headset' },
+] as const;
+
+const STACK = {
+  windows: 'Windows · WPF / .NET',
+  macos: 'macOS · Swift / Electron',
+  linux: 'Linux · GTK / Qt',
+} as const;
+
+const SLIDE_MS = 4200;
+
+/**
+ * Software desktop: uma janela do SGA CTRLB (capturas reais) dentro de uma área de trabalho
+ * genérica desenhada em CSS — sem logotipos, ícones ou papéis de parede de Windows/macOS/Ubuntu.
+ * O que muda entre os sistemas é só a disposição das barras e dos controles da janela.
+ */
 @Component({
   selector: 'app-desktop-software-demo',
   standalone: true,
-  imports: [CommonModule, FontAwesomeModule, ChatWidgetComponent],
   templateUrl: './desktop-software-demo.component.html',
-  styleUrls: ['./desktop-software-demo.component.scss']
+  styleUrls: ['./desktop-software-demo.component.scss'],
 })
-export class DesktopSoftwareDemoComponent implements OnInit, AfterViewInit, OnDestroy {
+export class DesktopSoftwareDemoComponent implements AfterViewInit, OnDestroy {
   @Input() os: 'windows' | 'macos' | 'linux' = 'windows';
-  @ViewChild('monitorContainer') monitorContainer!: ElementRef;
 
-  activeTab: string = 'dashboard';
+  @ViewChild('monitor') private monitorRef!: ElementRef<HTMLElement>;
+  @ViewChild('screen') private screenRef!: ElementRef<HTMLElement>;
+  @ViewChild('win') private winRef!: ElementRef<HTMLElement>;
 
-  config = {
-    notifications: true,
-    updates: false
-  };
+  readonly i18n = inject(I18nService);
+  readonly t = this.i18n.scope(I18N);
+  private readonly zone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly showcase = new Showcase(inject(ElementRef).nativeElement, this.zone, {
+    play: () => this.play(),
+    rewind: () => this.rewind(),
+    changed: () => this.cdr.markForCheck(),
+  }, 8000);
 
-  setActiveTab(tab: string) {
-    this.activeTab = tab;
+  readonly screens = SCREENS;
+  readonly stack = STACK;
+
+  active = 0;
+  /** Só carrega a captura atual e a próxima; as demais entram sob demanda. */
+  loaded = new Set<number>([0, 1]);
+  isWindowOpen = true;
+  isMinimized = false;
+  isMaximized = false;
+  dragging = false;
+  showCtrlBImage = false;
+
+  private readonly now = signal(new Date());
+  private clockTimer = 0;
+  private drag = { x: 0, y: 0 };
+  private stopDrag: (() => void) | null = null;
+  private readonly onKey = (ev: KeyboardEvent) => this.handleKey(ev);
+
+  get nativeKey(): 'nativeWin' | 'nativeMac' | 'nativeLinux' {
+    return this.os === 'macos' ? 'nativeMac' : this.os === 'linux' ? 'nativeLinux' : 'nativeWin';
   }
 
-  toggleConfig(key: keyof typeof this.config) {
-    this.config[key] = !this.config[key];
+  src(file: string): string {
+    // A variante Linux usa as capturas do tema escuro, para as três molduras não ficarem iguais.
+    return `/images/real-screens/${file}${this.os === 'linux' ? '-dark' : ''}.png`;
   }
 
-  scaleFactor: number = 1;
-  containerHeight: number = 0;
-  baseWidth: number = 1600;
-  baseHeight: number = 900; // 16:9 of 1600px
-
-  constructor(private el: ElementRef) { }
-
-  isWindowOpen: boolean = true;
-  isMaximized: boolean = false;
-  isMinimized: boolean = false;
-  currentTime: string = '';
-  currentDate: string = '';
-
-  // Icons
-  faWindowMinimize = faWindowMinimize;
-  faWindowMaximize = faWindowMaximize;
-  faTimes = faTimes;
-  faDesktop = faDesktop;
-  faWifi = faWifi;
-  faVolumeUp = faVolumeUp;
-  faBatteryFull = faBatteryFull;
-  faSearch = faSearch;
-  faThLarge = faThLarge;
-  faCog = faCog;
-  faFolder = faFolder;
-  faTerminal = faTerminal;
-  faCode = faCode;
-  faGlobe = faGlobe;
-  faBrain = faBrain;
-
-  // Brand Icons
-  faWindowsBrand = faMicrosoft;
-  faAppleBrand = faApple;
-  faLinuxBrand = faUbuntu;
-
-  showCtrlBImage: boolean = false;
-
-  @HostListener('window:keydown', ['$event'])
-  handleKeyboardEvent(event: KeyboardEvent) {
-    if (event.ctrlKey && event.key.toLowerCase() === 'b') {
-      event.preventDefault();
-      this.showCtrlBImage = !this.showCtrlBImage;
-    }
+  clock(): string {
+    return this.i18n.date(this.now(), { hour: '2-digit', minute: '2-digit' });
   }
 
-  // Window State
-  windowPosition = { x: 100, y: 50 }; // Slightly left to center 1400 on 1600
-  windowSize = { width: 1400, height: 800 };
-  isDragging = false;
-  dragStart = { x: 0, y: 0 };
-  initialWindowPosition = { x: 0, y: 0 };
-
-  ngOnInit() {
-    this.updateTime();
-    setInterval(() => this.updateTime(), 1000);
+  day(): string {
+    return this.i18n.date(this.now(), { day: '2-digit', month: 'short' });
   }
 
-  private resizeObserver: ResizeObserver | null = null;
-
-  ngAfterViewInit() {
-    this.initResizeObserver();
+  ngAfterViewInit(): void {
+    this.showcase.attach();
+    this.clockTimer = window.setInterval(() => this.now.set(new Date()), 30000);
+    this.zone.runOutsideAngular(() => document.addEventListener('keydown', this.onKey));
   }
 
-  initResizeObserver() {
-    if (!this.monitorContainer) return;
-
-    this.resizeObserver = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        this.updateScale(entry.contentRect.width);
-      }
-    });
-
-    if (this.monitorContainer.nativeElement.parentElement) {
-      this.resizeObserver.observe(this.monitorContainer.nativeElement.parentElement);
-    } else {
-      this.resizeObserver.observe(this.monitorContainer.nativeElement);
-    }
-
-    // Initial call just in case
-    setTimeout(() => this.updateScale(), 0);
+  ngOnDestroy(): void {
+    this.showcase.destroy();
+    clearInterval(this.clockTimer);
+    document.removeEventListener('keydown', this.onKey);
+    this.stopDrag?.();
   }
 
-  ngOnDestroy() {
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-    }
+  // ---------- telas ----------
+
+  select(index: number): void {
+    this.showcase.interact();
+    this.go(index);
   }
 
-  updateScale(width?: number) {
-    if (!this.monitorContainer) return;
-
-    let containerWidth: number = width ?? 0;
-
-    // Fallbacks
-    if (containerWidth === 0) {
-      // Use parent offsetWidth to avoid reading the stretched child width
-      containerWidth = this.monitorContainer.nativeElement.parentElement?.offsetWidth || this.monitorContainer.nativeElement.offsetWidth;
-
-      // If container is 0 (hidden), try window fallback
-      if (!containerWidth) {
-        containerWidth = window.innerWidth < 800 ? window.innerWidth - 40 : 800; // conservative fallback
-      }
-    }
-
-    // Safety check for zero width
-    if (containerWidth === 0) {
-      containerWidth = this.el.nativeElement.offsetWidth || (window.innerWidth > 0 ? window.innerWidth : 400);
-    }
-
-    // Now that grid is fixed with minmax(0, 1fr), the host element width is TRUTH.
-    // We should trust it, but apply a safety buffer to avoid pixel rounding cutoffs.
-
-    // Safety buffer: subtract 2px to ensure borders aren't clipped by rounding errors
-    const availableWidth = containerWidth - 2;
-
-    this.scaleFactor = Math.min(availableWidth / this.baseWidth, 1.0);
-
-    // Min scale cap
-    if (this.scaleFactor <= 0.1) this.scaleFactor = 0.1;
-
-    this.containerHeight = this.baseHeight * this.scaleFactor;
+  private go(index: number): void {
+    this.active = index;
+    this.loaded.add(index);
+    this.loaded.add((index + 1) % SCREENS.length);
   }
 
-  updateTime() {
-    const now = new Date();
-    this.currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    this.currentDate = now.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' });
+  private play(): void {
+    this.showcase.seq([
+      [SLIDE_MS, () => this.go((this.active + 1) % SCREENS.length)],
+      [60, () => this.showcase.loop()],
+    ]);
   }
 
-  // Drag Handlers
-  startDrag(event: MouseEvent) {
-    if (this.isMaximized) return;
-    this.isDragging = true;
-    this.dragStart = { x: event.clientX, y: event.clientY };
-    this.initialWindowPosition = { ...this.windowPosition };
-    event.preventDefault(); // Prevent text selection
-  }
-
-  @HostListener('window:mousemove', ['$event'])
-  onDrag(event: MouseEvent) {
-    if (!this.isDragging) return;
-    const dx = event.clientX - this.dragStart.x;
-    const dy = event.clientY - this.dragStart.y;
-    this.windowPosition = {
-      x: this.initialWindowPosition.x + dx,
-      y: this.initialWindowPosition.y + dy
-    };
-  }
-
-  @HostListener('window:mouseup')
-  endDrag() {
-    this.isDragging = false;
-  }
-
-  closeWindow() {
-    this.isWindowOpen = false;
-    this.isMaximized = false;
+  /** A troca de tela é um crossfade contínuo; aqui só reabrimos a janela se alguém a fechou. */
+  private rewind(): number {
+    if (this.isWindowOpen && !this.isMinimized) return 0;
+    this.isWindowOpen = true;
     this.isMinimized = false;
+    return 500;
   }
 
-  openWindow() {
+  // ---------- janela ----------
+
+  closeWindow(): void {
+    this.showcase.interact();
+    this.isWindowOpen = false;
+    this.isMinimized = false;
+    this.isMaximized = false;
+    this.resetDrag();
+  }
+
+  openWindow(): void {
+    this.showcase.interact();
     this.isWindowOpen = true;
     this.isMinimized = false;
   }
 
-  minimizeWindow() {
+  minimizeWindow(): void {
+    this.showcase.interact();
     this.isMinimized = true;
   }
 
-  toggleMaximize() {
+  toggleMaximize(): void {
+    this.showcase.interact();
     this.isMaximized = !this.isMaximized;
+    if (this.isMaximized) this.resetDrag();
   }
 
-  restoreWindow() {
-    if (this.isMinimized) {
+  /** Ícone da barra de tarefas/dock: abre, restaura ou minimiza, como em um SO de verdade. */
+  restoreWindow(): void {
+    this.showcase.interact();
+    if (!this.isWindowOpen || this.isMinimized) {
+      this.isWindowOpen = true;
       this.isMinimized = false;
     } else {
-      this.isWindowOpen = true;
+      this.isMinimized = true;
     }
+  }
+
+  startDrag(ev: PointerEvent): void {
+    const monitor = this.monitorRef.nativeElement;
+    // Em telas estreitas a janela ocupa a área toda: não há para onde arrastar.
+    if (this.isMaximized || monitor.clientWidth < 520 || ev.button > 0) return;
+    if ((ev.target as HTMLElement).closest('button')) return;
+    ev.preventDefault();
+    this.showcase.interact();
+
+    const win = this.winRef.nativeElement;
+    const screen = this.screenRef.nativeElement.getBoundingClientRect();
+    const box = win.getBoundingClientRect();
+    const start = { x: ev.clientX - this.drag.x, y: ev.clientY - this.drag.y };
+    // Limites: a barra de título nunca sai da tela simulada.
+    const minX = this.drag.x - (box.left - screen.left) - box.width * 0.6;
+    const maxX = this.drag.x + (screen.right - box.right) + box.width * 0.6;
+    const minY = this.drag.y - (box.top - screen.top);
+    const maxY = this.drag.y + (screen.bottom - box.top) - 40;
+
+    this.dragging = true;
+    const move = (e: PointerEvent) => {
+      this.drag = {
+        x: Math.min(maxX, Math.max(minX, e.clientX - start.x)),
+        y: Math.min(maxY, Math.max(minY, e.clientY - start.y)),
+      };
+      win.style.setProperty('--dx', `${this.drag.x}px`);
+      win.style.setProperty('--dy', `${this.drag.y}px`);
+    };
+    const end = () => {
+      this.stopDrag?.();
+      this.zone.run(() => this.set(() => (this.dragging = false)));
+    };
+    this.stopDrag = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      this.stopDrag = null;
+    };
+    this.zone.runOutsideAngular(() => {
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
+    });
+  }
+
+  /** Mudança de estado fora de um evento do template: avisa o Angular (a página é OnPush). */
+  private set(change: () => void): void {
+    change();
+    this.cdr.markForCheck();
+  }
+
+  private resetDrag(): void {
+    this.drag = { x: 0, y: 0 };
+    const win = this.winRef?.nativeElement;
+    win?.style.setProperty('--dx', '0px');
+    win?.style.setProperty('--dy', '0px');
+  }
+
+  /** Brincadeira com o nome do produto: Ctrl+B mostra o logotipo enquanto a demo está na tela. */
+  private handleKey(ev: KeyboardEvent): void {
+    if (this.showCtrlBImage && ev.key === 'Escape') {
+      this.zone.run(() => this.set(() => (this.showCtrlBImage = false)));
+      return;
+    }
+    if (!ev.ctrlKey || ev.key.toLowerCase() !== 'b' || !this.showcase.isActive) return;
+    const target = ev.target as HTMLElement | null;
+    if (target?.closest('input, textarea, [contenteditable]')) return;
+    ev.preventDefault();
+    this.zone.run(() => this.set(() => (this.showCtrlBImage = !this.showCtrlBImage)));
   }
 }

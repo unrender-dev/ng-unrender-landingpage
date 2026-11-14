@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="bg6" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="100%" stop-color="#1a0b2e"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg6)"/>
+  <circle cx="650" cy="120" r="160" fill="#f99126" opacity="0.1"/>
+  <!-- Caixa Registradora Smart USB -->
+  <rect x="150" y="90" width="500" height="135" rx="16" fill="#0f172a" stroke="#f99126" stroke-width="2.5"/>
+  <text x="400" y="132" font-family="sans-serif" font-size="19" font-weight="bold" fill="#ffffff" text-anchor="middle">SMART CASH DRAWER USB PLUG &amp; PLAY</text>
+  <text x="400" y="158" font-family="monospace" font-size="13" fill="#f99126" text-anchor="middle">OPEN/CLOSE SENSOR • DIRECT USB • NO PRINTER NEEDED</text>
+  <!-- Bandeja Removível -->
+  <rect x="175" y="190" width="450" height="175" rx="10" fill="#1e293b" stroke="#f99126" stroke-width="2"/>
+  <rect x="195" y="208" width="75" height="85" rx="6" fill="#064e3b" stroke="#10b981"/>
+  <rect x="278" y="208" width="75" height="85" rx="6" fill="#064e3b" stroke="#10b981"/>
+  <rect x="361" y="208" width="75" height="85" rx="6" fill="#064e3b" stroke="#10b981"/>
+  <rect x="444" y="208" width="75" height="85" rx="6" fill="#064e3b" stroke="#10b981"/>
+  <rect x="527" y="208" width="78" height="85" rx="6" fill="#064e3b" stroke="#10b981"/>
+  <rect x="195" y="305" width="410" height="45" rx="6" fill="#0f172a"/>
+  <text x="400" y="332" font-family="monospace" font-size="12" fill="#38bdf8" text-anchor="middle">USB: ONLINE • SENSOR: OK</text>
+  <rect x="155" y="365" width="490" height="68" rx="12" fill="#1e293b" stroke="#f99126" stroke-width="2"/>
+  <rect x="200" y="390" width="160" height="12" rx="6" fill="#020617"/>
+  <rect x="490" y="384" width="115" height="30" rx="8" fill="#f99126"/>
+  <text x="547" y="404" font-family="sans-serif" font-size="12" font-weight="bold" fill="#10051c" text-anchor="middle">USB 2.0</text>
+</svg>

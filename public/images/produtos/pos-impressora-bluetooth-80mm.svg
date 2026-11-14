@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="bg4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10051c"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg4)"/>
+  <circle cx="640" cy="130" r="160" fill="#f99126" opacity="0.1"/>
+  <!-- Cupom 80mm -->
+  <rect x="290" y="65" width="220" height="140" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="400" y="95" font-family="monospace" font-size="13" font-weight="bold" fill="#0f172a" text-anchor="middle">WIRELESS 80 MM</text>
+  <rect x="320" y="112" width="160" height="8" rx="4" fill="#64748b"/>
+  <rect x="320" y="128" width="120" height="8" rx="4" fill="#38bdf8"/>
+  <!-- Corpo 80mm Bluetooth + Wi-Fi -->
+  <rect x="230" y="195" width="340" height="215" rx="28" fill="#1e293b" stroke="#f99126" stroke-width="2.5"/>
+  <rect x="270" y="210" width="260" height="12" rx="6" fill="#020617"/>
+  <rect x="265" y="250" width="270" height="65" rx="14" fill="#0f172a" stroke="#334155"/>
+  <circle cx="298" cy="282" r="8" fill="#38bdf8"/>
+  <text x="355" y="287" font-family="monospace" font-size="14" font-weight="bold" fill="#38bdf8">BT 5.0 + WI-FI</text>
+  <rect x="470" y="267" width="48" height="30" rx="8" fill="#22c55e"/>
+  <text x="494" y="287" font-family="sans-serif" font-size="11" font-weight="bold" fill="#052e16" text-anchor="middle">ON</text>
+  <text x="400" y="358" font-family="sans-serif" font-size="18" font-weight="bold" fill="#f8fafc" text-anchor="middle">THERMAL 80MM BLUETOOTH &amp; WI-FI</text>
+  <text x="400" y="384" font-family="monospace" font-size="13" fill="#f99126" text-anchor="middle">BLUETOOTH 5.0 • WI-FI • USB • AUTO CUTTER</text>
+</svg>

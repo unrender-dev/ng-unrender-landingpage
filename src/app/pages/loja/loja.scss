@@ -1,0 +1,130 @@
+:host {
+  display: block;
+}
+
+.loja {
+  :is(a, button, input, select):focus-visible {
+    outline: 2px solid #f99126;
+    outline-offset: 2px;
+  }
+}
+
+.loja-wrap {
+  overflow-wrap: anywhere;
+}
+
+// Brilho de marca do topo: gradiente radial barato (sem filtro de blur).
+.loja-glow {
+  background: radial-gradient(closest-side, rgba(249, 145, 38, 0.16), transparent);
+}
+
+// Deixa espaço para a navbar fixa ao rolar até os filtros.
+.loja-ancora {
+  scroll-margin-top: 5rem;
+}
+
+.loja-btn {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+.loja-atalho {
+  animation: loja-entrada 0.45s ease-out backwards;
+
+  @for $i from 1 through 4 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 60}ms;
+    }
+  }
+}
+
+// Categorias: a borda direita esmaecida indica que a faixa rola.
+.loja-pills {
+  scrollbar-width: none;
+  padding-right: 28px;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.loja-entrada {
+  animation: loja-entrada 0.35s ease-out both;
+}
+
+.loja-card {
+  animation: loja-entrada 0.45s ease-out backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition:
+    transform 0.28s ease,
+    border-color 0.28s ease,
+    box-shadow 0.28s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px rgba(249, 145, 38, 0.12);
+  }
+}
+
+.loja-card-img {
+  transition: transform 0.5s ease;
+
+  .loja-card:hover & {
+    transform: scale(1.04);
+  }
+}
+
+.loja-pulse {
+  animation: loja-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes loja-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// Vai e volta: o fim do ciclo é igual ao começo (sem salto).
+@keyframes loja-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loja-atalho,
+  .loja-card,
+  .loja-entrada,
+  .loja-pulse {
+    animation: none;
+  }
+
+  .loja-btn,
+  .loja-card,
+  .loja-card-img {
+    transition: none;
+  }
+
+  .loja-card:hover,
+  .loja-card:hover .loja-card-img {
+    transform: none;
+  }
+}

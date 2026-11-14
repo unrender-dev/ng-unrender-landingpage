@@ -1,0 +1,224 @@
+// Modal do catálogo POS: entrada/saída animadas, foco visível e rolagem interna.
+:host {
+  display: contents;
+}
+
+.pos-overlay {
+  animation: pos-fade 0.2s ease-out both;
+  // No celular o diálogo ocupa a tela toda e é ele que rola.
+  overscroll-behavior: contain;
+
+  &.is-closing {
+    animation: pos-fade-out 0.18s ease-in both;
+
+    .pos-dialog {
+      animation: pos-pop-out 0.18s ease-in both;
+    }
+  }
+}
+
+.pos-dialog {
+  animation: pos-pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.08) both;
+
+  &:focus {
+    outline: none;
+  }
+
+  :is(a, button, input, select, textarea):focus-visible {
+    outline: 2px solid #f99126;
+    outline-offset: 2px;
+  }
+}
+
+.pos-panel {
+  animation: pos-panel-in 0.24s ease-out both;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  // Área segura do celular (barra de gestos).
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.pos-wrap {
+  overflow-wrap: anywhere;
+}
+
+.pos-btn {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+.pos-card {
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(249, 145, 38, 0.1);
+  }
+}
+
+.pos-card-img {
+  transition: transform 0.5s ease;
+
+  .pos-card:hover & {
+    transform: scale(1.04);
+  }
+}
+
+// Categorias: a borda direita esmaecida indica que a faixa rola.
+.pos-pills {
+  scrollbar-width: none;
+  padding-right: 28px;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.pos-field {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  // 16px evita o zoom automático do iOS ao focar o campo.
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.18s ease;
+
+  &::placeholder {
+    color: #6b7280;
+  }
+
+  &:focus {
+    border-color: #f99126;
+  }
+
+  @media (min-width: 640px) {
+    font-size: 0.875rem;
+  }
+}
+
+.pos-select {
+  background-color: #120822;
+}
+
+.pos-pulse {
+  animation: pos-pulse 1.8s ease-in-out infinite;
+}
+
+.pos-success {
+  animation: pos-panel-in 0.3s ease-out both;
+}
+
+.pos-success-icon {
+  animation: pos-check 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4) 0.1s both;
+}
+
+@keyframes pos-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pos-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pos-pop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pos-pop-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+@keyframes pos-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pos-check {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// Vai e volta: o fim do ciclo é igual ao começo (sem salto).
+@keyframes pos-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pos-overlay,
+  .pos-dialog,
+  .pos-panel,
+  .pos-success,
+  .pos-success-icon,
+  .pos-pulse {
+    animation: none !important;
+  }
+
+  .pos-btn,
+  .pos-card,
+  .pos-card-img {
+    transition: none;
+  }
+
+  .pos-card:hover,
+  .pos-card:hover .pos-card-img {
+    transform: none;
+  }
+}

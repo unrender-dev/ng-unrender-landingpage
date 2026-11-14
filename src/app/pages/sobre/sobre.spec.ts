@@ -8,7 +8,7 @@ describe('Sobre', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [Sobre]
+      imports: [Sobre]
     })
     .compileComponents();
 

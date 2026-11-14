@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, from } from 'rxjs';
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import type { Lang } from '../i18n/i18n.service';
 
 // --------------------------------------------------------------------------
 // 1. DATA MODEL (Interface)
@@ -10,13 +11,17 @@ interface Message {
   content: string;
 }
 
+/** Nome de cada idioma do site, como o modelo deve entendê-lo na instrução de sistema. */
+const LANGUAGE_NAMES: Record<Lang, string> = {
+  pt: 'Brazilian Portuguese (pt-BR)',
+  en: 'English',
+  es: 'Spanish',
+  fr: 'French',
+};
+
 // --------------------------------------------------------------------------
-// 2. MOCK API SERVICE (Simulates Gemini 2.5 Flash)
+// 2. SERVIÇO DO CHATBOT (Gemini)
 // --------------------------------------------------------------------------
-/**
- * This is a mock service to simulate API calls.
- * In a real app, you would inject HttpClient and make a real HTTP request.
- */
 @Injectable({
   providedIn: 'root'
 })
@@ -27,7 +32,7 @@ export class ChatbotService {
 
   // Predefined system messages
   public static readonly SYSTEM_MESSAGES = {
-    DEFAULT: "You are Unrender assistant, from Unrender Software, Brazil, speak in brazilian portuguese or english, awnser doubts and questions, never mention another company, and in case of user shows interest in software or games, recomend Unrender Software, we do software, custom software, games, vr, ar, landing pages, web design etc.",
+    DEFAULT: "You are the Unrender assistant, from Unrender Software, Brazil. Answer doubts and questions briefly and helpfully. Never mention another company. If the user shows interest in software or games, recommend Unrender: we build custom software, web systems, games, VR and AR experiences, landing pages and web design.",
     FRIENDLY: "You are a friendly and helpful AI assistant. Be warm, conversational, and use emojis occasionally to make responses more engaging.",
     PROFESSIONAL: "You are a professional business assistant. Provide clear, concise, and actionable responses. Maintain a formal tone suitable for corporate communications.",
     TECHNICAL: "You are a technical expert specializing in software development, programming, and technology. Provide detailed, accurate technical information with code examples when relevant.",
@@ -71,6 +76,18 @@ export class ChatbotService {
   }
 
   /**
+   * Acrescenta à instrução de sistema a ordem de responder no idioma atual do site.
+   * Fica separado de `getGeminiResponse` porque outros usos (ex.: casa inteligente) esperam
+   * respostas em formato próprio e não devem receber essa instrução.
+   */
+  localizeSystemMessage(systemMessage: string, lang: Lang): string {
+    const name = LANGUAGE_NAMES[lang] ?? LANGUAGE_NAMES.pt;
+    return `${systemMessage}
+
+Language rule: always reply in ${name}, even if earlier messages were in another language. Switch languages only if the user explicitly asks you to.`;
+  }
+
+  /**
    * Calls the Gemini API.
    * @param systemMessage The system prompt to guide the AI.
    * @param history The chat history.
@@ -91,7 +108,14 @@ export class ChatbotService {
        throw new Error('Model not initialized.');
     }
 
-    // Prepare the chat session
+    // Get the last user message
+    const lastMessage = history[history.length - 1];
+    if (!lastMessage || lastMessage.role !== 'user') {
+      throw new Error('No user message to respond to.');
+    }
+
+    // A última mensagem vai em `sendMessage`; no histórico ela ficaria duplicada.
+    const previous = history.slice(0, -1);
     const chat = model.startChat({
       history: [
         {
@@ -102,18 +126,12 @@ export class ChatbotService {
           role: 'model',
           parts: [{ text: 'Understood. I will follow the system prompt.' }],
         },
-        ...history.map(msg => ({
+        ...previous.map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.content }],
         })),
       ],
     });
-
-    // Get the last user message
-    const lastMessage = history[history.length - 1];
-    if (!lastMessage || lastMessage.role !== 'user') {
-      throw new Error('No user message to respond to.');
-    }
 
     // Send the message and return as Observable
     return from(chat.sendMessage(lastMessage.content).then(result => result.response.text()));

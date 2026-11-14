@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="hwnBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10051c"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="hwnUnit" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#hwnBg)"/>
+  <circle cx="150" cy="120" r="190" fill="#38bdf8" opacity="0.07"/>
+  <!-- Ponto de acesso Wi-Fi -->
+  <g fill="none" stroke="#38bdf8" stroke-width="5" stroke-linecap="round">
+    <path d="M352 96a68 68 0 0 1 96 0"/>
+    <path d="M328 72a102 102 0 0 1 144 0"/>
+  </g>
+  <rect x="340" y="112" width="120" height="36" rx="18" fill="url(#hwnUnit)" stroke="#38bdf8" stroke-width="2.5"/>
+  <circle cx="400" cy="130" r="6" fill="#22c55e"/>
+  <!-- Ligações -->
+  <g fill="none" stroke="#f99126" stroke-width="3">
+    <path d="M400 148v40"/>
+    <path d="M400 258v34"/>
+  </g>
+  <!-- Firewall dual-WAN -->
+  <rect x="190" y="188" width="420" height="70" rx="10" fill="url(#hwnUnit)" stroke="#f99126" stroke-width="2.5"/>
+  <g fill="#0b1220" stroke="#64748b" stroke-width="1.5">
+    <rect x="212" y="208" width="34" height="30" rx="4"/>
+    <rect x="254" y="208" width="34" height="30" rx="4"/>
+  </g>
+  <g fill="#f99126">
+    <rect x="222" y="216" width="14" height="6" rx="2"/>
+    <rect x="264" y="216" width="14" height="6" rx="2"/>
+  </g>
+  <path d="M430 208l22 8v12c0 10-9 17-22 22-13-5-22-12-22-22v-12z" fill="none" stroke="#f99126" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="548" cy="223" r="6" fill="#22c55e"/><circle cx="570" cy="223" r="6" fill="#22c55e"/><circle cx="592" cy="223" r="6" fill="#38bdf8"/>
+  <!-- Switch PoE+ -->
+  <rect x="150" y="292" width="500" height="92" rx="10" fill="url(#hwnUnit)" stroke="#475569" stroke-width="2.5"/>
+  <g fill="#0b1220" stroke="#64748b" stroke-width="1.5">
+    <rect x="172" y="310" width="30" height="24" rx="3"/><rect x="208" y="310" width="30" height="24" rx="3"/><rect x="244" y="310" width="30" height="24" rx="3"/><rect x="280" y="310" width="30" height="24" rx="3"/><rect x="316" y="310" width="30" height="24" rx="3"/><rect x="352" y="310" width="30" height="24" rx="3"/><rect x="388" y="310" width="30" height="24" rx="3"/><rect x="424" y="310" width="30" height="24" rx="3"/><rect x="460" y="310" width="30" height="24" rx="3"/><rect x="496" y="310" width="30" height="24" rx="3"/>
+    <rect x="172" y="342" width="30" height="24" rx="3"/><rect x="208" y="342" width="30" height="24" rx="3"/><rect x="244" y="342" width="30" height="24" rx="3"/><rect x="280" y="342" width="30" height="24" rx="3"/><rect x="316" y="342" width="30" height="24" rx="3"/><rect x="352" y="342" width="30" height="24" rx="3"/><rect x="388" y="342" width="30" height="24" rx="3"/><rect x="424" y="342" width="30" height="24" rx="3"/><rect x="460" y="342" width="30" height="24" rx="3"/><rect x="496" y="342" width="30" height="24" rx="3"/>
+  </g>
+  <g fill="#22c55e">
+    <circle cx="187" cy="314" r="2.5"/><circle cx="223" cy="314" r="2.5"/><circle cx="259" cy="314" r="2.5"/><circle cx="331" cy="314" r="2.5"/><circle cx="403" cy="314" r="2.5"/><circle cx="475" cy="314" r="2.5"/>
+    <circle cx="187" cy="346" r="2.5"/><circle cx="295" cy="346" r="2.5"/><circle cx="367" cy="346" r="2.5"/><circle cx="439" cy="346" r="2.5"/><circle cx="511" cy="346" r="2.5"/>
+  </g>
+  <g fill="#0b1220" stroke="#38bdf8" stroke-width="1.5">
+    <rect x="556" y="318" width="34" height="40" rx="4"/>
+    <rect x="598" y="318" width="34" height="40" rx="4"/>
+  </g>
+  <text x="400" y="434" font-family="sans-serif" font-size="18" font-weight="bold" fill="#f8fafc" text-anchor="middle">NETWORK KIT • HIGH AVAILABILITY</text>
+  <text x="400" y="458" font-family="monospace" font-size="13" fill="#f99126" text-anchor="middle">DUAL-WAN FIREWALL • PoE+ SWITCH • WI-FI 6</text>
+</svg>

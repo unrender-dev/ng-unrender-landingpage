@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="bg7" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10051c"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg7)"/>
+  <circle cx="200" cy="120" r="170" fill="#f99126" opacity="0.09"/>
+  <!-- Monitor 19.5" Widescreen -->
+  <rect x="135" y="65" width="380" height="230" rx="14" fill="#0f172a" stroke="#64748b" stroke-width="4"/>
+  <rect x="150" y="80" width="350" height="195" rx="6" fill="#1e1b4b"/>
+  <!-- Interface PDV na Tela -->
+  <rect x="150" y="80" width="350" height="28" fill="#10051c"/>
+  <text x="168" y="99" font-family="sans-serif" font-size="12" font-weight="bold" fill="#f99126">UNRENDER POS</text>
+  <rect x="165" y="120" width="200" height="140" rx="6" fill="#0f172a" stroke="#334155"/>
+  <rect x="177" y="132" width="52" height="48" rx="5" fill="#1e293b" stroke="#f99126"/>
+  <rect x="238" y="132" width="52" height="48" rx="5" fill="#1e293b" stroke="#38bdf8"/>
+  <rect x="299" y="132" width="52" height="48" rx="5" fill="#1e293b" stroke="#22c55e"/>
+  <rect x="177" y="190" width="174" height="56" rx="5" fill="#1e293b"/>
+  <text x="264" y="223" font-family="monospace" font-size="15" font-weight="bold" fill="#22c55e" text-anchor="middle">R$ 0,00</text>
+  <rect x="378" y="120" width="108" height="140" rx="6" fill="#0f172a" stroke="#334155"/>
+  <rect x="390" y="220" width="84" height="28" rx="5" fill="#22c55e"/>
+  <!-- Pedestal do Monitor -->
+  <rect x="305" y="295" width="40" height="45" fill="#334155"/>
+  <rect x="245" y="335" width="160" height="12" rx="6" fill="#475569"/>
+  <!-- Mini PC Core i5 SSD -->
+  <rect x="550" y="105" width="125" height="235" rx="14" fill="#1e293b" stroke="#f99126" stroke-width="2.5"/>
+  <circle cx="612" cy="145" r="12" fill="#0f172a" stroke="#22c55e" stroke-width="2.5"/>
+  <rect x="577" y="180" width="70" height="8" rx="4" fill="#38bdf8"/>
+  <rect x="577" y="198" width="70" height="8" rx="4" fill="#38bdf8"/>
+  <text x="612" y="255" font-family="sans-serif" font-size="14" font-weight="bold" fill="#f8fafc" text-anchor="middle">CORE i5</text>
+  <text x="612" y="276" font-family="monospace" font-size="11" fill="#f99126" text-anchor="middle">8 GB • SSD 256</text>
+  <!-- Teclado ABNT2 + Mouse USB -->
+  <rect x="145" y="375" width="360" height="72" rx="10" fill="#1e293b" stroke="#64748b" stroke-width="2"/>
+  <rect x="162" y="390" width="326" height="12" rx="3" fill="#0f172a"/>
+  <rect x="162" y="408" width="326" height="12" rx="3" fill="#0f172a"/>
+  <rect x="215" y="426" width="180" height="12" rx="3" fill="#f99126"/>
+  <!-- Mouse -->
+  <rect x="555" y="375" width="60" height="75" rx="30" fill="#1e293b" stroke="#f99126" stroke-width="2"/>
+  <line x1="585" y1="382" x2="585" y2="405" stroke="#f99126" stroke-width="3"/>
+</svg>

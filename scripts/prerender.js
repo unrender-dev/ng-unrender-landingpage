@@ -8,7 +8,7 @@ const DIST_DIR = path.join(__dirname, '../dist/ng-unrender-landing-page/browser'
 const PORT = 8765;
 
 // All routes to prerender
-const ROUTES = ['/', '/inicio', '/sobre', '/ecossistema'];
+const ROUTES = ['/', '/inicio', '/sobre', '/loja', '/ecossistema', '/politica'];
 
 // Simple static file server
 function createStaticServer(root) {

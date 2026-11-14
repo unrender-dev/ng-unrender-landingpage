@@ -1,364 +1,278 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ChangeDetectorRef, ViewChildren, QueryList, ElementRef, ViewChild, HostListener } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy,
+  computed, inject, signal, viewChildren,
+} from '@angular/core';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { faServer, faMicrochip, faNetworkWired, faWind, faBolt, faTemperatureHigh } from '@fortawesome/free-solid-svg-icons';
+import { faBolt, faListCheck, faPowerOff, faRotateRight, faServer, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+import { I18nService } from '../../../../i18n/i18n.service';
+import { SimLoop, clamp, ease, rng } from '../infra-shared/sim-loop';
+import { I18N } from './physical-server-rack.i18n';
 
-interface Gpu {
-  id: string;
-  name: string;
-  load: number; // 0-100
-  temperature: number; // Celsius
-  memory: number; // Used GB
-  fansSpeed: number; // 0-100
-  active: boolean;
-  status: 'idle' | 'working' | 'overheating';
-  currentTask?: string;
-  color: string;
-  x?: number; // For connection lines
-  y?: number;
-}
+type Key = keyof (typeof I18N)['pt'];
+type ServerState = 'online' | 'offline' | 'booting';
 
-interface ServerUnit {
-  id: string;
-  name: string;
-  status: 'online' | 'offline' | 'maintenance';
-  gpus: Gpu[];
-  cpuLoad: number;
-}
+const JOB_KEYS = ['jobBatch', 'jobVision', 'jobData', 'jobEval', 'jobRender', 'jobLlm', 'jobEmbed'] as const satisfies readonly Key[];
+const VRAM_TOTAL = 24;
+const BOOT_SECONDS = 3;
 
-interface Task {
-  id: string;
-  name: string;
-  complexity: number; // Affects duration/load
-  progress: number;
-  assignedTo?: string; // GPU ID
-
-}
-
-interface DataPacket {
+interface Job {
   id: number;
-  startX: number;
-  startY: number;
-  targetX: number;
-  targetY: number;
-  progress: number; // 0-100%
-  targetGpuId: string;
+  key: Key;
+  /** Segundos de GPU necessários. */
+  duration: number;
+  progress: number;
+  intensity: number;
+  vram: number;
+}
+
+/** Estado físico contínuo de uma GPU (atualizado a cada quadro). */
+interface GpuSim {
+  load: number;
+  temp: number;
+  vram: number;
+  fan: number;
+  angle: number;
+  phase: number;
+  idleUntil: number;
+  job: Job | null;
+}
+
+interface ServerSim {
+  id: string;
+  name: string;
+  state: ServerState;
+  bootUntil: number;
+  power: number;
+  gpus: GpuSim[];
+}
+
+/** Retrato arredondado do estado, publicado algumas vezes por segundo para o template. */
+export interface GpuView {
+  n: number;
+  load: number;
+  temp: number;
+  vram: number;
+  job: Key | null;
+  progress: number;
+}
+
+export interface ServerView {
+  id: string;
+  name: string;
+  index: number;
+  state: ServerState;
+  power: number;
+  gpus: GpuView[];
 }
 
 @Component({
   selector: 'app-physical-server-rack',
   standalone: true,
-  imports: [CommonModule, FontAwesomeModule],
+  imports: [FontAwesomeModule],
   templateUrl: './physical-server-rack.component.html',
-  styleUrls: ['./physical-server-rack.component.scss']
+  styleUrls: ['./physical-server-rack.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PhysicalServerRackComponent implements OnInit, OnDestroy, AfterViewInit {
-  @ViewChild('rackContainer') rackContainer!: ElementRef;
-  @ViewChild('switchElement') switchElement!: ElementRef;
-  @ViewChildren('gpuElement') gpuElements!: QueryList<ElementRef>;
+export class PhysicalServerRackComponent implements AfterViewInit, OnDestroy {
+  readonly i18n = inject(I18nService);
+  readonly t = this.i18n.scope(I18N);
+  private readonly zone = inject(NgZone);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+  private readonly rotors = viewChildren<ElementRef<SVGGElement>>('rotor');
 
-  faServer = faServer;
-  faMicrochip = faMicrochip;
-  faNetworkWired = faNetworkWired;
-  faWind = faWind;
-  faBolt = faBolt;
-  faTemperatureHigh = faTemperatureHigh;
+  readonly icons = { bolt: faBolt, queue: faListCheck, power: faPowerOff, restart: faRotateRight, server: faServer, done: faCircleCheck };
+  readonly vramTotal = VRAM_TOTAL;
+  readonly blades = [0, 72, 144, 216, 288];
+  readonly ports = Array.from({ length: 12 }, (_, i) => i);
+  readonly battery = [0, 1, 2, 3, 4];
 
-  servers: ServerUnit[] = [];
-  packets: DataPacket[] = [];
-  taskQueue: Task[] = [];
-  completedTasks: Task[] = [];
+  private readonly rand = rng(20240);
+  private readonly sim: ServerSim[] = Array.from({ length: 4 }, (_, i) => ({
+    id: `node-${i + 1}`,
+    name: `AI-NODE-0${i + 1}`,
+    state: 'online' as ServerState,
+    bootUntil: 0,
+    power: 180,
+    gpus: Array.from({ length: 3 }, () => ({
+      load: 3, temp: 34, vram: 0.6, fan: 0.15, angle: this.rand() * 72,
+      phase: this.rand() * 6.28, idleUntil: this.rand() * 3, job: null,
+    })),
+  }));
+  private pending: Job[] = [];
+  private jobId = 0;
+  private nextJobAt = 0;
+  private doneCount = 128;
 
-  private simulationInterval: any;
-  private taskGeneratorInterval: any;
-  private animationFrameId: any;
+  readonly servers = signal<ServerView[]>(this.snapshot());
+  readonly queue = signal<{ id: number; key: Key }[]>([]);
+  readonly done = signal(this.doneCount);
+  readonly totalPower = signal(0.9);
+  readonly selectedId = signal(this.sim[0].id);
+  readonly selected = computed(() => this.servers().find((s) => s.id === this.selectedId()) ?? this.servers()[0]);
 
-  // Switch position (Top center)
-  switchPos = { x: 50, y: 10 }; // Percentages
+  private loop?: SimLoop;
+  private publishAcc = 0;
+  private holdUntil = 0;
+  private nextAutoSelect = 6;
 
-  constructor(private cdr: ChangeDetectorRef) { }
-
-  ngOnInit() {
-    this.initializeRack();
+  ngAfterViewInit(): void {
+    for (let i = 0; i < 4; i++) this.pending.push(this.makeJob());
+    this.loop = new SimLoop(this.host.nativeElement, this.zone, (t, dt) => this.frame(t, dt), 12);
+    this.loop.start();
   }
 
-  ngAfterViewInit() {
-    // Give time for layout to settle then start animation
-    setTimeout(() => {
-      this.calculatePositions();
-      this.startSimulation();
-    }, 500);
+  ngOnDestroy(): void {
+    this.loop?.destroy();
   }
 
-  @HostListener('window:resize')
-  onResize() {
-    this.calculatePositions();
+  // --- Interação ---
+  select(id: string): void {
+    this.selectedId.set(id);
+    this.hold();
   }
 
-  ngOnDestroy() {
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
-    if (this.taskGeneratorInterval) clearInterval(this.taskGeneratorInterval);
-    if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+  onServerKey(event: Event, id: string): void {
+    event.preventDefault();
+    this.select(id);
   }
 
-  initializeRack() {
-    // Create 4 servers, each with 3 GPUs
-    for (let i = 0; i < 4; i++) {
-      const gpus: Gpu[] = [];
-      for (let j = 0; j < 3; j++) {
-        gpus.push({
-          id: `gpu-${i}-${j}`,
-          name: `RTX 4090`,
-          load: 0,
-          temperature: 30,
-          memory: 0,
-          fansSpeed: 0,
-          active: false,
-          status: 'idle',
-          color: 'rgba(200, 200, 200, 0.1)' // Initial colorless/gray
-        });
+  toggle(id: string): void {
+    const server = this.sim.find((s) => s.id === id);
+    if (!server || server.state === 'booting') return;
+    this.hold();
+    if (server.state === 'online') {
+      server.state = 'offline';
+      // As tarefas em andamento voltam para o início da fila, mantendo o progresso (checkpoint).
+      for (const gpu of server.gpus) {
+        if (gpu.job) this.pending.unshift(gpu.job);
+        gpu.job = null;
       }
-      this.servers.push({
-        id: `server-${i}`,
-        name: `AI-NODE-0${i + 1}`,
-        status: 'online',
-        cpuLoad: 10,
-        gpus
-      });
+    } else {
+      server.state = 'booting';
+      server.bootUntil = (this.loop?.now() ?? 0) + BOOT_SECONDS;
     }
+    this.publish();
   }
 
-  calculatePositions() {
-    if (!this.rackContainer || !this.switchElement || !this.gpuElements) return;
+  /** O usuário assumiu: a seleção automática só volta depois de um tempo sem interação. */
+  private hold(): void {
+    this.holdUntil = (this.loop?.now() ?? 0) + 15;
+  }
 
-    const containerRect = this.rackContainer.nativeElement.getBoundingClientRect();
-    const switchRect = this.switchElement.nativeElement.getBoundingClientRect();
+  // --- Formatação ---
+  num(v: number, digits = 0): string {
+    return this.i18n.number(v, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+  pct(v: number): string {
+    return this.i18n.number(v / 100, { style: 'percent', maximumFractionDigits: 0 });
+  }
+  stateKey(state: ServerState): Key {
+    return state;
+  }
+  loadColor(load: number): string {
+    return load >= 85 ? '#ef4444' : load >= 55 ? '#f99126' : '#34d399';
+  }
+  portServer(port: number): ServerView | null {
+    return port < 8 ? this.servers()[port >> 1] : null;
+  }
 
-    // Calculate Switch Position relative to container (percentage)
-    this.switchPos = {
-      x: ((switchRect.left + switchRect.width / 2 - containerRect.left) / containerRect.width) * 100,
-      y: ((switchRect.top + switchRect.height / 2 - containerRect.top) / containerRect.height) * 100
+  // --- Simulação (fora da NgZone) ---
+  private makeJob(): Job {
+    return {
+      id: ++this.jobId,
+      key: JOB_KEYS[Math.floor(this.rand() * JOB_KEYS.length)],
+      duration: 8 + this.rand() * 10,
+      progress: 0,
+      intensity: 68 + this.rand() * 30,
+      vram: 8 + this.rand() * 14,
     };
-
-    // Map GPU elements to data
-    const gpuElementsArray = this.gpuElements.toArray();
-    let elementIndex = 0;
-
-    this.servers.forEach(server => {
-      server.gpus.forEach(gpu => {
-        if (elementIndex < gpuElementsArray.length) {
-          const el = gpuElementsArray[elementIndex].nativeElement;
-          const rect = el.getBoundingClientRect();
-
-          gpu.x = ((rect.left + rect.width / 2 - containerRect.left) / containerRect.width) * 100;
-          gpu.y = ((rect.top + rect.height / 2 - containerRect.top) / containerRect.height) * 100;
-
-          elementIndex++;
-        }
-      });
-    });
   }
 
-  startSimulation() {
-    // 1. Traffic & Task Simulation Loop
-    this.simulationInterval = setInterval(() => {
-      this.processTasks();
-      this.updateHardwarePhysics();
-      // Keep generating visual packets for active tasks
-      this.generateTaskTraffic();
-    }, 100);
+  private frame(t: number, dt: number): void {
+    // A fila é reabastecida indefinidamente: a simulação nunca "termina" para recomeçar.
+    if (t >= this.nextJobAt && this.pending.length < 5) {
+      this.pending.push(this.makeJob());
+      this.nextJobAt = t + Math.max(0.4, 1.15 - 0.95 * Math.cos(t * 0.13)) + this.rand() * 0.3;
+    }
 
-    // Generate new tasks periodically
-    this.taskGeneratorInterval = setInterval(() => {
-      if (this.taskQueue.length < 10) {
-        this.generateTask();
-      }
-    }, 2000);
+    let total = 95;
+    let k = 0;
+    const rotors = this.rotors();
+    for (const server of this.sim) {
+      if (server.state === 'booting' && t >= server.bootUntil) server.state = 'online';
+      const online = server.state === 'online';
+      let power = online ? 180 : server.state === 'booting' ? 120 : 0;
 
-    // 2. Animation Loop (60fps)
-    const animate = () => {
-      this.updatePackets();
-      this.animationFrameId = requestAnimationFrame(animate);
-    };
-    animate();
-  }
-
-  generateTask() {
-    const taskTypes = ['Treinamento de Lote', 'Inferência YOLOv8', 'Processamento de Dados', 'Validação de Modelo', 'Renderização NeRF', 'Fine-tuning LLM'];
-    const type = taskTypes[Math.floor(Math.random() * taskTypes.length)];
-    const id = Math.random().toString(36).substr(2, 5).toUpperCase();
-
-    this.taskQueue.push({
-      id: `TASK-${id}`,
-      name: type,
-      complexity: Math.floor(Math.random() * 50) + 50, // 50-100
-      progress: 0
-    });
-  }
-
-  processTasks() {
-    // 1. Assign pending tasks to idle GPUs
-    const idleGpus = this.getAllGpus().filter(g => g.status === 'idle' && this.getServerOfGpu(g.id)?.status === 'online');
-    const pendingTasks = this.taskQueue.filter(t => !t.assignedTo);
-
-    pendingTasks.forEach(task => {
-      if (idleGpus.length > 0) {
-        // Load Balancing: Pick GPU with lowest temp/best health
-        idleGpus.sort((a, b) => a.temperature - b.temperature);
-        const targetGpu = idleGpus.shift();
-
-        if (targetGpu) {
-          targetGpu.status = 'working';
-          targetGpu.currentTask = task.name;
-          task.assignedTo = targetGpu.id;
+      for (const gpu of server.gpus) {
+        if (online && !gpu.job && t >= gpu.idleUntil && this.pending.length) {
+          gpu.job = this.pending.shift()!;
         }
-      }
-    });
-
-    // 2. Progress active tasks
-    this.taskQueue.forEach((task, index) => {
-      if (task.assignedTo) {
-        const gpu = this.getGpuById(task.assignedTo);
-        const server = this.getServerOfGpu(task.assignedTo!);
-
-        // Failover Check: If server died, unassign task
-        if (!server || server.status !== 'online') {
-          task.assignedTo = undefined; // Return to queue
-          return;
-        }
-
-        if (gpu) {
-          // Progress task
-          task.progress += 2; // Speed (slower than original since tick is faster)
-
-          // Update GPU stats based on work
-          gpu.load = Math.min(100, gpu.load + 5);
-          // Temp updated in updateHardwarePhysics
-          gpu.memory = Math.min(24, gpu.memory + 0.5); // Max 24GB
-
-          if (task.progress >= 100) {
-            // Task Complete
-            this.completeTask(index, gpu);
+        if (gpu.job) {
+          gpu.job.progress += dt / gpu.job.duration;
+          if (gpu.job.progress >= 1) {
+            gpu.job = null;
+            gpu.idleUntil = t + 1.2 + this.rand() * 2.8;
+            this.doneCount++;
           }
         }
+        const targetLoad = !online ? 0 : gpu.job ? gpu.job.intensity + 4 * Math.sin(t * 0.8 + gpu.phase) : 3;
+        // Interpolação exponencial: os valores deslizam até o alvo, sem saltos a cada tick.
+        gpu.load = ease(gpu.load, clamp(targetLoad, 0, 100), dt, 1.1);
+        gpu.temp = ease(gpu.temp, online ? 34 + gpu.load * 0.42 : 24, dt, online ? 3.5 : 6);
+        gpu.vram = ease(gpu.vram, online ? (gpu.job ? gpu.job.vram : 0.6) : 0, dt, 0.9);
+        gpu.fan = ease(gpu.fan, online ? clamp((gpu.temp - 34) / 38, 0.14, 1) : 0, dt, online ? 1.4 : 2.2);
+        gpu.angle = (gpu.angle + gpu.fan * 640 * dt) % 360;
+        if (online) power += 28 + gpu.load * 3.1;
+
+        // Dois rotores por GPU, defasados para não girarem "em espelho".
+        const a = gpu.angle.toFixed(1);
+        rotors[k++]?.nativeElement.setAttribute('transform', `rotate(${a})`);
+        rotors[k++]?.nativeElement.setAttribute('transform', `rotate(${((gpu.angle + 31) % 360).toFixed(1)})`);
       }
-    });
-  }
+      server.power = ease(server.power, power, dt, 0.8);
+      total += server.power;
+    }
+    this.rackPower = total;
 
-  completeTask(index: number, gpu: Gpu) {
-    const task = this.taskQueue[index];
-    this.completedTasks.unshift(task);
-    if (this.completedTasks.length > 5) this.completedTasks.pop();
+    // Modo vitrine: percorre os servidores enquanto ninguém interage.
+    if (!this.loop?.reduced && t >= this.holdUntil && t >= this.nextAutoSelect) {
+      const i = this.sim.findIndex((s) => s.id === this.selectedId());
+      this.selectedId.set(this.sim[(i + 1) % this.sim.length].id);
+      this.nextAutoSelect = t + 6;
+    }
+    if (t < this.holdUntil) this.nextAutoSelect = this.holdUntil;
 
-    this.taskQueue.splice(index, 1);
-
-    // Reset GPU
-    gpu.status = 'idle';
-    gpu.currentTask = undefined;
-    gpu.load = 0;
-  }
-
-  generateTaskTraffic() {
-    // Generate packets only for working GPUs
-    const workingGpus = this.getAllGpus().filter(g => g.status === 'working');
-
-    if (workingGpus.length > 0 && Math.random() > 0.5) {
-      const randomGpu = workingGpus[Math.floor(Math.random() * workingGpus.length)];
-
-      this.packets.push({
-        id: Date.now() + Math.random(),
-        startX: this.switchPos.x,
-        startY: this.switchPos.y,
-        targetX: randomGpu.x || 50,
-        targetY: randomGpu.y || 50,
-        progress: 0,
-        targetGpuId: randomGpu.id
-      });
+    this.publishAcc += dt;
+    if (this.publishAcc >= 0.2) {
+      this.publishAcc = 0;
+      this.publish();
     }
   }
 
-  updatePackets() {
-    const speed = 2; // % per frame
+  private rackPower = 900;
 
-    for (let i = this.packets.length - 1; i >= 0; i--) {
-      const packet = this.packets[i];
-      packet.progress += speed;
-
-      if (packet.progress >= 100) {
-        // Hit target
-        this.processPacketHit(packet.targetGpuId);
-        this.packets.splice(i, 1);
-      }
-    }
-    this.cdr.detectChanges();
+  private publish(): void {
+    this.servers.set(this.snapshot());
+    this.queue.set(this.pending.slice(0, 3).map((j) => ({ id: j.id, key: j.key })));
+    this.done.set(this.doneCount);
+    this.totalPower.set(this.rackPower / 1000);
   }
 
-  processPacketHit(gpuId: string) {
-    // Visual only now, load controlled by task
-    const gpu = this.getGpuById(gpuId);
-    if (gpu) {
-      gpu.active = true;
-      // Maybe tiny boost to show impact
-    }
-  }
-
-  updateHardwarePhysics() {
-    this.servers.forEach(server => {
-      if (server.status === 'online') {
-        server.cpuLoad = Math.max(5, Math.min(100, server.cpuLoad + (Math.random() * 4 - 2)));
-
-        server.gpus.forEach(gpu => {
-          if (gpu.status === 'idle') {
-            gpu.load = Math.max(0, gpu.load - 5);
-            gpu.memory = Math.max(0, gpu.memory - 1);
-          }
-
-          // Temperature follows load
-          const targetTemp = 30 + (gpu.load * 0.6);
-          gpu.temperature += (targetTemp - gpu.temperature) * 0.05;
-
-          // Fans follow temperature
-          gpu.fansSpeed = Math.max(0, (gpu.temperature - 30) * 1.5);
-
-          // Color calculation
-          if (gpu.load < 5) {
-            gpu.color = 'rgba(226, 232, 240, 0.2)';
-            gpu.active = false;
-          } else {
-            const hue = Math.max(0, 120 - (gpu.load * 1.2));
-            const lightness = 60;
-            const alpha = 0.5 + (gpu.load / 200);
-            gpu.color = `hsla(${hue}, 80%, ${lightness}%, ${alpha})`;
-          }
-        });
-      } else {
-        // Offline
-        server.cpuLoad = 0;
-        server.gpus.forEach(gpu => {
-          gpu.load = 0;
-          gpu.fansSpeed = Math.max(0, gpu.fansSpeed - 2);
-          gpu.temperature = Math.max(20, gpu.temperature - 0.5);
-          gpu.color = 'rgba(50, 50, 50, 0.1)';
-          gpu.active = false;
-        });
-      }
-    });
-  }
-
-  // Helpers
-  getAllGpus(): Gpu[] {
-    return this.servers.flatMap(s => s.gpus);
-  }
-
-  getGpuById(id: string): Gpu | undefined {
-    return this.getAllGpus().find(g => g.id === id);
-  }
-
-  getServerOfGpu(gpuId: string): ServerUnit | undefined {
-    return this.servers.find(s => s.gpus.some(g => g.id === gpuId));
-  }
-
-  toggleServerStatus(server: ServerUnit) {
-    server.status = server.status === 'online' ? 'offline' : 'online';
+  private snapshot(): ServerView[] {
+    return this.sim.map((s, index) => ({
+      id: s.id,
+      name: s.name,
+      index,
+      state: s.state,
+      power: Math.round(s.power),
+      gpus: s.gpus.map((g, n) => ({
+        n: n + 1,
+        load: Math.round(g.load),
+        temp: Math.round(g.temp),
+        vram: Math.round(g.vram * 10) / 10,
+        job: g.job?.key ?? null,
+        progress: g.job ? Math.min(100, Math.round(g.job.progress * 100)) : 0,
+      })),
+    }));
   }
 }

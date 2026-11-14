@@ -1,8 +1,86 @@
-import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, ViewChild, effect, inject } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { I18N, GraphKey } from './graphs.i18n';
 
-// Garanta que a biblioteca vis-network esteja importada no seu projeto,
-// por exemplo, no array 'scripts' do seu arquivo angular.json.
+// A biblioteca vis-network precisa estar carregada globalmente (ex.: array
+// `scripts` do angular.json). Sem ela o componente não desenha nada.
 declare var vis: any;
+
+interface GraphNode {
+  id: string;
+  /** Nome do produto (não traduzido). */
+  name: string;
+  role: GraphKey;
+  size: number;
+  group: 'hub' | 'infra' | 'finance' | 'comms' | 'vertical' | 'tools';
+  /** Existe `<id>-png.png` em `public/`; sem logotipo o nó vira um ponto com a cor da marca. */
+  logo: boolean;
+}
+
+interface GraphEdge {
+  from: string;
+  to: string;
+  label?: GraphKey;
+  dashes?: boolean | number[];
+}
+
+const NODES: GraphNode[] = [
+  // Hubs centrais e de suporte
+  { id: 'controlb', name: 'Control B', role: 'role_erp', size: 45, group: 'hub', logo: true },
+  { id: 'norna', name: 'Norna', role: 'role_config', size: 30, group: 'infra', logo: false },
+  { id: 'mani', name: 'Mani', role: 'role_billing', size: 35, group: 'finance', logo: false },
+  { id: 'seshat', name: 'Seshat', role: 'role_comms', size: 35, group: 'comms', logo: false },
+  { id: 'tevat', name: 'Tevat', role: 'role_drive', size: 35, group: 'infra', logo: false },
+  // Sistemas verticais
+  { id: 'higia', name: 'Higia', role: 'role_clinics', size: 30, group: 'vertical', logo: true },
+  { id: 'brok', name: 'Brok', role: 'role_workshops', size: 30, group: 'vertical', logo: true },
+  { id: 'freya', name: 'Freya', role: 'role_pets', size: 30, group: 'vertical', logo: true },
+  { id: 'dice', name: 'Dice.adv.br', role: 'role_law', size: 30, group: 'vertical', logo: true },
+  { id: 'kardapio', name: 'Kardapio', role: 'role_delivery', size: 30, group: 'vertical', logo: true },
+  { id: 'odin', name: 'Odin', role: 'role_education', size: 30, group: 'vertical', logo: false },
+  { id: 'janus', name: 'Janus', role: 'role_security', size: 30, group: 'vertical', logo: true },
+  { id: 'hermes', name: 'Hermes', role: 'role_logistics', size: 30, group: 'vertical', logo: true },
+  { id: 'apolo', name: 'Apolo', role: 'role_creative', size: 30, group: 'vertical', logo: true },
+  // Sistemas auxiliares e ferramentas
+  { id: 'shark', name: 'Shark', role: 'role_collections', size: 30, group: 'finance', logo: false },
+  { id: 'ava', name: 'Ava', role: 'role_ai_agent', size: 30, group: 'comms', logo: false },
+  { id: 'qotar', name: 'Qotar', role: 'role_ai_quotes', size: 30, group: 'tools', logo: true },
+  { id: 'courier', name: 'Courier', role: 'role_email', size: 30, group: 'tools', logo: false },
+];
+
+const VERTICALS = ['higia', 'brok', 'freya', 'dice', 'kardapio', 'odin', 'janus', 'hermes', 'apolo'];
+
+const EDGES: GraphEdge[] = [
+  { from: 'higia', to: 'controlb', label: 'edge_clinical' },
+  { from: 'brok', to: 'controlb', label: 'edge_work_orders' },
+  { from: 'freya', to: 'controlb', label: 'edge_pet_sales' },
+  { from: 'dice', to: 'controlb', label: 'edge_cases' },
+  { from: 'kardapio', to: 'controlb', label: 'edge_orders' },
+  { from: 'odin', to: 'controlb', label: 'edge_academic' },
+  { from: 'janus', to: 'controlb', label: 'edge_alerts' },
+  { from: 'hermes', to: 'controlb', label: 'edge_fleet' },
+  { from: 'apolo', to: 'controlb', label: 'edge_projects' },
+  ...VERTICALS.flatMap((vertical): GraphEdge[] => [
+    { from: vertical, to: 'mani', label: 'edge_bill', dashes: true },
+    { from: vertical, to: 'seshat', label: 'edge_notify', dashes: true },
+  ]),
+  { from: 'janus', to: 'tevat', label: 'edge_recordings', dashes: true },
+  { from: 'apolo', to: 'tevat', label: 'edge_media', dashes: true },
+  { from: 'higia', to: 'tevat', label: 'edge_exams', dashes: true },
+  { from: 'shark', to: 'mani', label: 'edge_collect' },
+  { from: 'ava', to: 'seshat', label: 'edge_automate' },
+  { from: 'courier', to: 'seshat', label: 'edge_send_email' },
+  { from: 'qotar', to: 'brok', label: 'edge_quotes' },
+  { from: 'qotar', to: 'dice', label: 'edge_proposals' },
+  { from: 'controlb', to: 'norna', dashes: [5, 5] },
+  { from: 'mani', to: 'norna', dashes: [5, 5] },
+  { from: 'seshat', to: 'norna', dashes: [5, 5] },
+  { from: 'tevat', to: 'norna', dashes: [5, 5] },
+];
+
+const ACCENT = '#f99126';
+/** Amplitude (px do grafo) da deriva suave dos nós depois da estabilização. */
+const DRIFT_AMPLITUDE = 7;
 
 @Component({
   selector: 'app-graphs',
@@ -10,323 +88,112 @@ declare var vis: any;
   templateUrl: './graphs.html',
   styleUrl: './graphs.scss',
 })
-export class Graphs implements AfterViewInit {
-  @ViewChild('networkContainer') networkContainer!: ElementRef;
+export class Graphs implements AfterViewInit, OnDestroy {
+  @ViewChild('networkContainer') networkContainer!: ElementRef<HTMLElement>;
+
+  private readonly i18n = inject(I18nService);
+  readonly t = this.i18n.scope(I18N);
+  private readonly zone = inject(NgZone);
 
   private network: any;
+  private nodes: any;
+  private edges: any;
 
-  constructor() { }
+  private basePositions: Record<string, { x: number; y: number }> | null = null;
+  private readonly dragging = new Set<string>();
+  private rafId: number | undefined;
+  private time = 0;
+  private lastFrame = 0;
+  private inView = false;
+  private observer?: IntersectionObserver;
+  private readonly onVisibility = () => this.syncDrift();
+  private readonly reducedMotion =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  constructor() {
+    // Os rótulos são desenhados no canvas do vis: ao trocar de idioma, atualiza os dados.
+    effect(() => {
+      this.i18n.lang();
+      this.relabel();
+    });
+  }
 
   ngAfterViewInit(): void {
-    this.createGraph();
+    this.zone.runOutsideAngular(() => this.createGraph());
+  }
+
+  ngOnDestroy(): void {
+    this.stopDrift();
+    this.observer?.disconnect();
+    document.removeEventListener('visibilitychange', this.onVisibility);
+    this.network?.destroy?.();
+    this.network = undefined;
+  }
+
+  private nodeLabel(node: GraphNode): string {
+    return `${node.name}\n(${this.t(node.role)})`;
+  }
+
+  private relabel(): void {
+    if (!this.nodes?.update || !this.edges?.update) return;
+    this.nodes.update(NODES.map((node) => ({ id: node.id, label: this.nodeLabel(node) })));
+    this.edges.update(
+      EDGES.map((edge, index) => ({ id: `e${index}`, label: edge.label ? this.t(edge.label) : undefined })),
+    );
   }
 
   private createGraph(): void {
-    // 1. Definição dos Nós (Sistemas) com logos PNG
-    // Usando a lista completa de sistemas e o padrão de imagem que você definiu.
-    const nodes = new vis.DataSet([
-      // Hubs Centrais e de Suporte
-      {
-        id: 'controlb',
-        label: 'Control B\n(ERP)',
-        shape: 'circularImage',
-        image: 'controlb-png.png',
-        size: 45,
-        group: 'hub',
-      },
-      {
-        id: 'norna',
-        label: 'Norna\n(Config)',
-        shape: 'circularImage',
-        image: 'norna-png.png',
-        size: 30,
-        group: 'infra',
-      },
-      {
-        id: 'mani',
-        label: 'Mani\n(Faturamento)',
-        shape: 'circularImage',
-        image: 'mani-png.png',
-        size: 35,
-        group: 'finance',
-      },
-      {
-        id: 'seshat',
-        label: 'Seshat\n(Comunicação)',
-        shape: 'circularImage',
-        image: 'seshat-png.png',
-        size: 35,
-        group: 'comms',
-      },
-      {
-        id: 'tevat',
-        label: 'Tevat\n(Drive)',
-        shape: 'circularImage',
-        image: 'tevat-png.png',
-        size: 35,
-        group: 'infra',
-      },
+    if (typeof vis === 'undefined') {
+      return;
+    }
 
-      // Sistemas Verticais (Clientes Finais)
-      {
-        id: 'higia',
-        label: 'Higia\n(Clínicas)',
-        shape: 'circularImage',
-        image: 'higia-png.png',
-        size: 30,
-        group: 'vertical',
-      },
-      {
-        id: 'brok',
-        label: 'Brok\n(Oficinas)',
-        shape: 'circularImage',
-        image: 'brok-png.png',
-        size: 30,
-        group: 'vertical',
-      },
-      {
-        id: 'freya',
-        label: 'Freya\n(Pet Shops)',
-        shape: 'circularImage',
-        image: 'freya-png.png',
-        size: 30,
-        group: 'vertical',
-      },
-      {
-        id: 'dice',
-        label: 'Dice.adv.br\n(Advocacia)',
-        shape: 'circularImage',
-        image: 'dice-png.png',
-        size: 30,
-        group: 'vertical',
-      },
-      {
-        id: 'kardapio',
-        label: 'Kardapio\n(Delivery)',
-        shape: 'circularImage',
-        image: 'kardapio-png.png',
-        size: 30,
-        group: 'vertical',
-      },
-      {
-        id: 'odin',
-        label: 'Odin\n(Educação)',
-        shape: 'circularImage',
-        image: 'odin-png.png',
-        size: 30,
-        group: 'vertical',
-      },
-      {
-        id: 'janus',
-        label: 'Janus\n(Segurança)',
-        shape: 'circularImage',
-        image: 'janus-png.png',
-        size: 30,
-        group: 'vertical',
-      },
-      {
-        id: 'hermes',
-        label: 'Hermes\n(Logística)',
-        shape: 'circularImage',
-        image: 'hermes-png.png',
-        size: 30,
-        group: 'vertical',
-      },
-      {
-        id: 'apolo',
-        label: 'Apolo\n(Criação)',
-        shape: 'circularImage',
-        image: 'apolo-png.png',
-        size: 30,
-        group: 'vertical',
-      },
+    this.nodes = new vis.DataSet(
+      NODES.map((node) => ({
+        id: node.id,
+        label: this.nodeLabel(node),
+        size: node.size,
+        group: node.group,
+        ...(node.logo
+          ? { shape: 'circularImage', image: `${node.id}-png.png` }
+          : { shape: 'dot', color: { background: ACCENT, border: ACCENT } }),
+      })),
+    );
 
-      // Sistemas Auxiliares e Ferramentas
-      {
-        id: 'shark',
-        label: 'Shark\n(Cobranças)',
-        shape: 'circularImage',
-        image: 'shark-png.png',
-        size: 30,
-        group: 'finance',
-      },
-      {
-        id: 'ava',
-        label: 'Ava\n(IA Atendente)',
-        shape: 'circularImage',
-        image: 'ava-png.png',
-        size: 30,
-        group: 'comms',
-      },
-      {
-        id: 'qotar',
-        label: 'Qotar\n(Cotação IA)',
-        shape: 'circularImage',
-        image: 'qotar-png.png',
-        size: 30,
-        group: 'tools',
-      },
-      {
-        id: 'courier',
-        label: 'Courier\n(Email)',
-        shape: 'circularImage',
-        image: 'courier-png.png',
-        size: 30,
-        group: 'tools',
-      },
-    ]);
+    this.edges = new vis.DataSet(
+      EDGES.map((edge, index) => ({
+        id: `e${index}`,
+        from: edge.from,
+        to: edge.to,
+        label: edge.label ? this.t(edge.label) : undefined,
+        arrows: 'to',
+        dashes: edge.dashes ?? false,
+      })),
+    );
 
-    // 2. Definição das Conexões (Arestas)
-    // Estrutura completa de conexões entre todos os sistemas.
-    const edges = new vis.DataSet([
-      { from: 'higia', to: 'controlb', label: 'Dados Clínicos', arrows: 'to' },
-      {
-        from: 'brok',
-        to: 'controlb',
-        label: 'Ordens de Serviço',
-        arrows: 'to',
-      },
-      { from: 'freya', to: 'controlb', label: 'Vendas e Pets', arrows: 'to' },
-      { from: 'dice', to: 'controlb', label: 'Processos', arrows: 'to' },
-      { from: 'kardapio', to: 'controlb', label: 'Pedidos', arrows: 'to' },
-      { from: 'odin', to: 'controlb', label: 'Dados Acadêmicos', arrows: 'to' },
-      { from: 'janus', to: 'controlb', label: 'Alertas e Logs', arrows: 'to' },
-      {
-        from: 'hermes',
-        to: 'controlb',
-        label: 'Entregas e Frotas',
-        arrows: 'to',
-      },
-      { from: 'apolo', to: 'controlb', label: 'Projetos', arrows: 'to' },
-      ...[
-        'higia',
-        'brok',
-        'freya',
-        'dice',
-        'kardapio',
-        'odin',
-        'janus',
-        'hermes',
-        'apolo',
-      ].flatMap((vertical) => [
-        {
-          from: vertical,
-          to: 'mani',
-          label: 'Faturar',
-          arrows: 'to',
-          dashes: true,
-        },
-        {
-          from: vertical,
-          to: 'seshat',
-          label: 'Comunicar',
-          arrows: 'to',
-          dashes: true,
-        },
-      ]),
-      {
-        from: 'janus',
-        to: 'tevat',
-        label: 'Gravações',
-        arrows: 'to',
-        dashes: true,
-      },
-      {
-        from: 'apolo',
-        to: 'tevat',
-        label: 'Mídia',
-        arrows: 'to',
-        dashes: true,
-      },
-      {
-        from: 'higia',
-        to: 'tevat',
-        label: 'Exames',
-        arrows: 'to',
-        dashes: true,
-      },
-      { from: 'shark', to: 'mani', label: 'Cobrar Faturas', arrows: 'to' },
-      { from: 'ava', to: 'seshat', label: 'Automatiza', arrows: 'to' },
-      { from: 'courier', to: 'seshat', label: 'Envia Emails', arrows: 'to' },
-      { from: 'qotar', to: 'brok', label: 'Orçamentos', arrows: 'to' },
-      { from: 'qotar', to: 'dice', label: 'Propostas', arrows: 'to' },
-      { from: 'controlb', to: 'norna', arrows: 'to', dashes: [5, 5] },
-      { from: 'mani', to: 'norna', arrows: 'to', dashes: [5, 5] },
-      { from: 'seshat', to: 'norna', arrows: 'to', dashes: [5, 5] },
-      { from: 'tevat', to: 'norna', arrows: 'to', dashes: [5, 5] },
-    ]);
-
-    const data = { nodes, edges };
-
-    // 3. Configuração de Aparência e Física para TEMA ESCURO
+    // Aparência para o tema escuro
     const options = {
       nodes: {
-        borderWidth: 0, // Sem borda nas imagens
+        borderWidth: 0,
         borderWidthSelected: 3,
         color: {
-          // Cor da borda quando o nó é selecionado
-          border: '#f99126',
-          background: 'transparent', // Fundo padrão transparente
-          // Garante que o fundo permaneça transparente ao interagir
-          highlight: {
-            border: '#f99126',
-            background: 'transparent',
-          },
-          hover: {
-            border: '#f99126',
-            background: 'transparent',
-          },
+          border: ACCENT,
+          background: 'transparent',
+          highlight: { border: ACCENT, background: 'transparent' },
+          hover: { border: ACCENT, background: 'transparent' },
         },
-        font: {
-          // Cor do texto dos nós
-          color: '#FFFFFF',
-          size: 14,
-          face: 'Inter',
-          strokeWidth: 0, // Sem contorno no texto
-        },
-        // Sombra sutil para destacar as logos
-        shadow: {
-          enabled: true,
-          color: 'rgba(0, 0, 0, 0.5)',
-          size: 10,
-          x: 3,
-          y: 3,
-        },
-        shapeProperties: {
-          useBorderWithImage: true,
-        },
+        font: { color: '#FFFFFF', size: 14, face: 'Montserrat', strokeWidth: 0 },
+        shadow: { enabled: true, color: 'rgba(0, 0, 0, 0.5)', size: 10, x: 3, y: 3 },
+        shapeProperties: { useBorderWithImage: true },
       },
       edges: {
         width: 2,
-        color: {
-          // Cor padrão das linhas e setas
-          color: '#FFFFFF',
-          // Cor ao passar o mouse ou selecionar
-          highlight: '#f99126',
-          hover: '#f99126',
-          opacity: 0.6,
-        },
-        arrows: {
-          to: { enabled: true, scaleFactor: 1, type: 'arrow' },
-        },
-        font: {
-          // Cor do texto das conexões
-          color: '#FFFFFF',
-          size: 12,
-          face: 'Inter',
-          align: 'middle',
-          // Fundo transparente para o texto
-          background: 'none',
-          strokeWidth: 0,
-        },
-        smooth: { enabled: true, type: 'dynamic', roundness: 0.5 },
+        color: { color: '#FFFFFF', highlight: ACCENT, hover: ACCENT, opacity: 0.6 },
+        arrows: { to: { enabled: true, scaleFactor: 1, type: 'arrow' } },
+        font: { color: '#FFFFFF', size: 12, face: 'Montserrat', align: 'middle', background: 'none', strokeWidth: 0 },
+        // `continuous` não depende da física: as curvas seguem os nós durante a deriva.
+        smooth: { enabled: true, type: 'continuous', roundness: 0.5 },
       },
-      interaction: {
-        hover: true,
-        dragNodes: true,
-        zoomView: true,
-        dragView: true,
-      },
+      interaction: { hover: true, dragNodes: true, zoomView: true, dragView: true },
       physics: {
         enabled: true,
         barnesHut: {
@@ -341,26 +208,76 @@ export class Graphs implements AfterViewInit {
       },
     };
 
-    // 4. Criação da Rede
     const container = this.networkContainer.nativeElement;
-    this.network = new vis.Network(container, data, options);
+    this.network = new vis.Network(container, { nodes: this.nodes, edges: this.edges }, options);
 
-    // 5. Lógica para Animação Contínua (opcional, mantida do seu código)
-    this.network.on('beforeDrawing', () => {
-      const allNodeIds = nodes.getIds();
-      allNodeIds.forEach((nodeId: any) => {
-        const node = this.network.body.nodes[nodeId];
-        if (node && !node.isFixed()) {
-          const velocityThreshold = 0.05;
-          if (
-            Math.abs(node.vx) < velocityThreshold &&
-            Math.abs(node.vy) < velocityThreshold
-          ) {
-            node.vx = (Math.random() - 0.5) * 0.3;
-            node.vy = (Math.random() - 0.5) * 0.3;
-          }
-        }
-      });
+    if (this.reducedMotion) return; // grafo parado depois de estabilizar
+
+    // Deriva contínua: depois de estabilizar, a física é desligada e cada nó oscila
+    // em torno da posição de repouso com funções periódicas do tempo (sem saltos
+    // nem reinício). Substitui o antigo sorteio de velocidade a cada quadro.
+    this.network.on?.('stabilizationIterationsDone', () => {
+      this.network.setOptions?.({ physics: { enabled: false } });
+      this.basePositions = this.network.getPositions?.() ?? null;
+      this.syncDrift();
     });
+    this.network.on?.('dragStart', (params: { nodes: string[] }) => {
+      params.nodes.forEach((id) => this.dragging.add(id));
+    });
+    this.network.on?.('dragEnd', (params: { nodes: string[] }) => {
+      const moved = this.network.getPositions?.(params.nodes) ?? {};
+      for (const id of params.nodes) {
+        if (this.basePositions && moved[id]) this.basePositions[id] = moved[id];
+        this.dragging.delete(id);
+      }
+    });
+
+    if (typeof IntersectionObserver === 'function') {
+      this.observer = new IntersectionObserver((entries) => {
+        this.inView = entries[entries.length - 1].isIntersecting;
+        this.syncDrift();
+      });
+      this.observer.observe(container);
+    } else {
+      this.inView = true;
+    }
+    document.addEventListener('visibilitychange', this.onVisibility);
   }
+
+  /** A deriva só roda com o grafo estabilizado, visível e com a aba ativa. */
+  private syncDrift(): void {
+    const shouldRun = !!this.basePositions && this.inView && !document.hidden && !!this.network?.moveNode;
+    if (shouldRun && this.rafId === undefined) {
+      this.lastFrame = performance.now();
+      this.rafId = requestAnimationFrame(this.driftFrame);
+    } else if (!shouldRun) {
+      this.stopDrift();
+    }
+  }
+
+  private stopDrift(): void {
+    if (this.rafId === undefined) return;
+    cancelAnimationFrame(this.rafId);
+    this.rafId = undefined;
+  }
+
+  private readonly driftFrame = (now: number): void => {
+    this.rafId = requestAnimationFrame(this.driftFrame);
+    this.time += Math.min(Math.max((now - this.lastFrame) / 1000, 0), 0.05);
+    this.lastFrame = now;
+    const base = this.basePositions;
+    if (!base || !this.network) return;
+    NODES.forEach((node, index) => {
+      const rest = base[node.id];
+      if (!rest || this.dragging.has(node.id)) return;
+      // Fase e frequência próprias por nó, para o conjunto não oscilar em bloco.
+      const phase = index * 1.7;
+      const speed = 0.35 + (index % 5) * 0.05;
+      this.network.moveNode(
+        node.id,
+        rest.x + Math.sin(this.time * speed + phase) * DRIFT_AMPLITUDE,
+        rest.y + Math.cos(this.time * speed * 0.8 + phase * 1.3) * DRIFT_AMPLITUDE,
+      );
+    });
+  };
 }

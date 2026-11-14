@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="hwsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10051c"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="hwsUnit" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#hwsBg)"/>
+  <circle cx="640" cy="110" r="190" fill="#f99126" opacity="0.08"/>
+  <!-- Rack -->
+  <rect x="210" y="50" width="380" height="372" rx="14" fill="#0b1220" stroke="#475569" stroke-width="3"/>
+  <rect x="228" y="68" width="10" height="336" rx="3" fill="#1e293b"/>
+  <rect x="562" y="68" width="10" height="336" rx="3" fill="#1e293b"/>
+  <!-- Servidor GPU 4U -->
+  <rect x="248" y="74" width="304" height="124" rx="8" fill="url(#hwsUnit)" stroke="#f99126" stroke-width="2.5"/>
+  <g fill="#0b1220" stroke="#64748b" stroke-width="1.5">
+    <rect x="262" y="88" width="62" height="96" rx="5"/>
+    <rect x="332" y="88" width="62" height="96" rx="5"/>
+    <rect x="402" y="88" width="62" height="96" rx="5"/>
+    <rect x="472" y="88" width="62" height="96" rx="5"/>
+  </g>
+  <g fill="none" stroke="#f99126" stroke-width="3">
+    <circle cx="293" cy="136" r="20"/>
+    <circle cx="363" cy="136" r="20"/>
+    <circle cx="433" cy="136" r="20"/>
+    <circle cx="503" cy="136" r="20"/>
+  </g>
+  <g fill="#f99126">
+    <circle cx="293" cy="136" r="5"/>
+    <circle cx="363" cy="136" r="5"/>
+    <circle cx="433" cy="136" r="5"/>
+    <circle cx="503" cy="136" r="5"/>
+  </g>
+  <!-- Nós de armazenamento -->
+  <g>
+    <rect x="248" y="210" width="304" height="52" rx="6" fill="url(#hwsUnit)" stroke="#475569" stroke-width="2"/>
+    <rect x="248" y="272" width="304" height="52" rx="6" fill="url(#hwsUnit)" stroke="#475569" stroke-width="2"/>
+    <rect x="248" y="334" width="304" height="52" rx="6" fill="url(#hwsUnit)" stroke="#475569" stroke-width="2"/>
+  </g>
+  <g fill="#0b1220">
+    <rect x="262" y="222" width="34" height="28" rx="3"/><rect x="302" y="222" width="34" height="28" rx="3"/><rect x="342" y="222" width="34" height="28" rx="3"/><rect x="382" y="222" width="34" height="28" rx="3"/><rect x="422" y="222" width="34" height="28" rx="3"/>
+    <rect x="262" y="284" width="34" height="28" rx="3"/><rect x="302" y="284" width="34" height="28" rx="3"/><rect x="342" y="284" width="34" height="28" rx="3"/><rect x="382" y="284" width="34" height="28" rx="3"/><rect x="422" y="284" width="34" height="28" rx="3"/>
+    <rect x="262" y="346" width="34" height="28" rx="3"/><rect x="302" y="346" width="34" height="28" rx="3"/><rect x="342" y="346" width="34" height="28" rx="3"/><rect x="382" y="346" width="34" height="28" rx="3"/><rect x="422" y="346" width="34" height="28" rx="3"/>
+  </g>
+  <g>
+    <circle cx="486" cy="236" r="6" fill="#22c55e"/><circle cx="508" cy="236" r="6" fill="#22c55e"/><circle cx="530" cy="236" r="6" fill="#38bdf8"/>
+    <circle cx="486" cy="298" r="6" fill="#22c55e"/><circle cx="508" cy="298" r="6" fill="#f99126"/><circle cx="530" cy="298" r="6" fill="#38bdf8"/>
+    <circle cx="486" cy="360" r="6" fill="#22c55e"/><circle cx="508" cy="360" r="6" fill="#22c55e"/><circle cx="530" cy="360" r="6" fill="#38bdf8"/>
+  </g>
+  <text x="400" y="456" font-family="sans-serif" font-size="18" font-weight="bold" fill="#f8fafc" text-anchor="middle">GPU SERVER • ON-PREMISE</text>
+  <text x="400" y="480" font-family="monospace" font-size="13" fill="#f99126" text-anchor="middle">MULTI-GPU • DDR5 ECC • RAID NVMe</text>
+</svg>

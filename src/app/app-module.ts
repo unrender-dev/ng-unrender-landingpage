@@ -10,7 +10,9 @@ import { FeatureTabs } from './components/feature-tabs/feature-tabs';
 import { Contact } from './components/contact/contact';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { Sobre } from './pages/sobre/sobre';
+import { Loja } from './pages/loja/loja';
 import { LoadingComponent } from './components/loading/loading.component';
+import { ProdutosPosModalComponent } from './components/produtos-pos-modal/produtos-pos-modal.component';
 
 @NgModule({
   declarations: [App, Navbar],
@@ -23,7 +25,9 @@ import { LoadingComponent } from './components/loading/loading.component';
     Contact,
     FontAwesomeModule,
     Sobre,
+    Loja,
     LoadingComponent,
+    ProdutosPosModalComponent,
   ],
   providers: [provideBrowserGlobalErrorListeners()],
   bootstrap: [App],

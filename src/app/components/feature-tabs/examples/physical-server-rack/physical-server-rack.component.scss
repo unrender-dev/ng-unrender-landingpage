@@ -1,10 +1,612 @@
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
+$purple: #10051c;
+$accent: #f99126;
+$green: #34d399;
 
 :host {
   display: block;
-  height: 100%;
   width: 100%;
+  container-type: inline-size;
+}
+
+.rackdemo {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: clamp(10px, 3cqw, 20px);
+  color: #334155;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: $purple;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+}
+
+.tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba($accent, 0.14);
+  color: #a45708;
+}
+
+.layout {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @container (min-width: 620px) {
+    grid-template-columns: minmax(250px, 360px) minmax(0, 1fr);
+    align-items: start;
+    gap: 20px;
+  }
+}
+
+/* ---------- Rack (SVG) ---------- */
+.rack {
+  display: block;
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  margin: 0 auto;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  user-select: none;
+}
+
+.frame {
+  fill: #1d1826;
+}
+
+.cavity {
+  fill: #0e0b13;
+}
+
+.holes {
+  stroke: #3a3347;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 9.2;
+}
+
+.plate {
+  fill: #8e86a0;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.unit {
+  fill: #2b2535;
+  stroke: #40384d;
+  stroke-width: 1;
+}
+
+.silk {
+  fill: #cfc8dc;
+  font-size: 8px;
+
+  &.name {
+    font-size: 8.5px;
+    font-weight: 700;
+    fill: #fff;
+  }
+
+  &.state {
+    font-size: 7.5px;
+    text-transform: uppercase;
+    fill: $green;
+    transition: fill 0.4s ease;
+  }
+
+  &.watt,
+  &.temp {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.port {
+  fill: #0e0b13;
+  stroke: #4a4259;
+  stroke-width: 0.6;
+}
+
+.vent {
+  stroke: #17131d;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.cell {
+  fill: $green;
+}
+
+.gpu {
+  fill: #19151f;
+  stroke: #3a3347;
+  stroke-width: 0.8;
+}
+
+.fan-case {
+  fill: #0b090f;
+  stroke: #353043;
+  stroke-width: 1;
+}
+
+.rotor path {
+  fill: #8a8299;
+  transition: fill 0.6s ease;
+}
+
+.fan-hub {
+  fill: #2b2535;
+  stroke: #4a4259;
+  stroke-width: 0.6;
+}
+
+.bar-track {
+  fill: #2f2939;
+}
+
+.bar-fill {
+  transform-origin: 0 0;
+  // A barra desliza entre duas leituras em vez de pular.
+  transition: transform 0.25s linear, fill 0.5s ease;
+}
+
+/* LEDs: padrões irregulares com períodos diferentes (nunca piscam em uníssono).
+   O primeiro e o último quadro são iguais, então a repetição não tem emenda. */
+.led {
+  transition: fill 0.4s ease;
+
+  &.link,
+  &.io {
+    fill: $green;
+  }
+
+  &.pwr {
+    fill: $green;
+  }
+
+  &.gpu-led {
+    fill: #4b4458;
+
+    &.busy {
+      fill: $accent;
+    }
+  }
+}
+
+.led-wrap {
+  transition: opacity 0.5s ease;
+
+  &.dim {
+    opacity: 0.12;
+  }
+}
+
+.blink-0 { animation: led-a 1.7s steps(1, end) infinite; }
+.blink-1 { animation: led-b 2.3s steps(1, end) infinite; }
+.blink-2 { animation: led-c 1.3s steps(1, end) infinite; }
+.blink-3 { animation: led-a 3.1s steps(1, end) infinite; }
+
+@keyframes led-a {
+  0%, 100% { opacity: 1; }
+  12% { opacity: 0.25; }
+  18% { opacity: 1; }
+  47% { opacity: 0.25; }
+  52% { opacity: 1; }
+  58% { opacity: 0.25; }
+  63% { opacity: 1; }
+  88% { opacity: 0.25; }
+  93% { opacity: 1; }
+}
+
+@keyframes led-b {
+  0%, 100% { opacity: 1; }
+  8% { opacity: 0.25; }
+  11% { opacity: 1; }
+  30% { opacity: 0.25; }
+  41% { opacity: 1; }
+  70% { opacity: 0.25; }
+  74% { opacity: 1; }
+  79% { opacity: 0.25; }
+  83% { opacity: 1; }
+}
+
+@keyframes led-c {
+  0%, 100% { opacity: 1; }
+  22% { opacity: 0.25; }
+  35% { opacity: 1; }
+  61% { opacity: 0.25; }
+  68% { opacity: 1; }
+}
+
+@keyframes led-boot {
+  from { opacity: 1; }
+  to { opacity: 0.2; }
+}
+
+.server {
+  cursor: pointer;
+  outline: none;
+
+  .sel {
+    fill: none;
+    stroke: $accent;
+    stroke-width: 2;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+
+  .unit {
+    transition: fill 0.35s ease, stroke 0.35s ease;
+  }
+
+  &:hover .unit {
+    fill: #332c3f;
+  }
+
+  &:focus-visible .sel {
+    opacity: 1;
+    stroke: #fff;
+    stroke-dasharray: 4 3;
+  }
+
+  &.selected {
+    .sel {
+      opacity: 1;
+    }
+
+    .unit {
+      stroke: rgba($accent, 0.6);
+    }
+  }
+
+  &.offline {
+    .state {
+      fill: #f87171;
+    }
+
+    .pwr {
+      fill: #5b2330;
+    }
+
+    .gpu-led {
+      fill: #2c2735;
+    }
+
+    .rotor path {
+      fill: #4d465b;
+    }
+  }
+
+  &.booting {
+    .state {
+      fill: #fbbf24;
+    }
+
+    .pwr {
+      fill: #fbbf24;
+      animation: led-boot 0.45s ease-in-out infinite alternate;
+    }
+  }
+}
+
+/* ---------- Painel ---------- */
+.side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel,
+.summary {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fbfaf9;
+}
+
+.panel {
+  animation: panel-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.panel-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: $purple;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  transition: background-color 0.4s ease, color 0.4s ease;
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &.off {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  &.boot {
+    background: #fef3c7;
+    color: #92400e;
+
+    .dot {
+      animation: led-boot 0.45s ease-in-out infinite alternate;
+    }
+  }
+}
+
+.gpu-row {
+  padding: 8px 0;
+  border-top: 1px solid #ece8f1;
+}
+
+.gpu-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.gpu-name {
+  font-weight: 700;
+  color: $purple;
+  flex-shrink: 0;
+}
+
+.gpu-job {
+  flex: 1;
+  min-width: 0;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+
+.gpu-prog {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.meter {
+  height: 6px;
+  border-radius: 3px;
+  background: #e7e3ee;
+  overflow: hidden;
+  margin: 6px 0 5px;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+  transition: transform 0.25s linear, background-color 0.5s ease;
+}
+
+.gpu-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 11px;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid #ece8f1;
+  padding-top: 10px;
+  margin-top: 2px;
+}
+
+.power {
+  font-size: 12px;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+
+  fa-icon {
+    color: $accent;
+    margin-right: 2px;
+  }
+
+  b {
+    color: $purple;
+  }
+}
+
+.act {
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid $purple;
+  background: $purple;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.25s, border-color 0.25s, color 0.25s, transform 0.15s;
+
+  &.danger {
+    background: #fff;
+    color: #b91c1c;
+    border-color: #fca5a5;
+
+    &:hover {
+      background: #fef2f2;
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+}
+
+.note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #991b1b;
+  opacity: 0;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.4s ease, opacity 0.4s ease, margin-top 0.4s ease;
+
+  &.show {
+    max-height: 5em;
+    opacity: 1;
+    margin-top: 8px;
+  }
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.kpi-label {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+
+  fa-icon {
+    color: $accent;
+    margin-right: 3px;
+  }
+}
+
+.kpi-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: $purple;
+  font-variant-numeric: tabular-nums;
+}
+
+.queue-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 4px;
+
+  fa-icon {
+    margin-right: 3px;
+  }
+}
+
+.queue ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  // Altura reservada para três itens: a lista não empurra o resto ao variar.
+  min-height: 78px;
+}
+
+.queue li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  margin-top: 4px;
+  border-left: 2px solid $purple;
+  background: #f3f0f7;
+  border-radius: 0 4px 4px 0;
+  animation: panel-in 0.3s ease-out;
+
+  &.empty {
+    border-left-color: transparent;
+    background: none;
+    color: #94a3b8;
+    font-style: italic;
+  }
+}
+
+.q-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.q-state {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.hint {
+  margin: 0;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

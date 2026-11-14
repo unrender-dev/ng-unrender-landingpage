@@ -1,116 +1,86 @@
 <main>
-  <!-- Seção do Herói com o componente do cubo 3D -->
-  <section class="hero-section">
-    <!-- O Canvas onde a mágica das partículas acontece -->
-    <canvas #particleCanvas id="particle-canvas"></canvas>
+  <section #hero class="sobre-hero">
+    <!-- Constelação de fundo (decorativa) -->
+    <canvas #particleCanvas id="particle-canvas" aria-hidden="true"></canvas>
 
-    <!-- O conteúdo que fica sobre a animação -->
-    <div class="hero-content container mx-auto px-4">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-6 lg:gap-12 items-center">
-        <!-- Coluna da Esquerda: Texto sobre a empresa -->
-        <div class="lg:col-span-7 text-left">
-          <h1 class="text-2xl md:text-5xl font-bold mb-2 md:mb-6">
-            NASCEMOS PARA <span class="highlight">INOVAR</span>
+    <div class="sobre-hero__content container mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+        <!-- Texto: manifesto e valores -->
+        <div class="min-w-0">
+          <h1 class="sobre-hero__title">
+            {{ t('headlinePre') }} <span class="highlight">{{ t('headlineHl') }}</span>
           </h1>
-          <!-- <p class="text-lg md:text-xl mb-8">
-            A UNRENDER é um coletivo de engenheiros de software, designers e
-            estrategistas fundado em 2022. <br /><br />
-            Nossa missão é criar softwares sob medida que se
-            integram perfeitamente ao seu negócio, impulsionando a eficiência e
-            resolvendo desafios reais com tecnologia de ponta.
-          </p> -->
-          <div class="values-list flex flex-col gap-4 md:gap-10">
-            <div class="value-item">
-              <!-- Ícone alterado para representar pessoas -->
-              <div>
-                <h5 class="text-xl md:text-2xl font-bold mb-2 md:mb-4 flex items-center text-white gap-3 md:gap-4">
-                  <div class="w-10 md:w-12 flex-shrink-0 flex justify-center">
-                    <i class="fa-solid fa-brain text-yellow-500 text-2xl md:text-3xl"></i>
-                  </div>
-                  Inteligência Humana
-                </h5>
 
-                <ul class="flex flex-col gap-2 md:gap-4">
-                  <li class="text-white text-sm md:text-base flex items-center gap-3 md:gap-4">
-                    <div class="w-10 md:w-12 flex-shrink-0 flex justify-center">
-                      <i class="fa-solid fa-people-carry-box text-yellow-500 text-lg md:text-xl"></i>
-                    </div>
-                    <span>Acreditamos na colaboração e no trabalho em equipe.</span>
-                  </li>
-                  <li class="text-white text-sm md:text-base flex items-center gap-3 md:gap-4">
-                    <div class="w-10 md:w-12 flex-shrink-0 flex justify-center">
-                      <i class="fa-solid fa-lightbulb text-yellow-500 text-lg md:text-xl"></i>
-                    </div>
-                    <span>Valorizamos a criatividade e o pensamento crítico.</span>
-                  </li>
-                  <li class="text-white text-sm md:text-base flex items-center gap-3 md:gap-4">
-                    <div class="w-10 md:w-12 flex-shrink-0 flex justify-center">
-                      <i class="fa-solid fa-book text-yellow-500 text-lg md:text-xl"></i>
-                    </div>
-                    <span>Acreditamos no talento e na experiência do nosso time.</span>
-                  </li>
+          <div class="values-list">
+            @for (valor of valores; track valor.title) {
+              <section class="value-item" [style.--i]="$index">
+                <h2 class="value-title">
+                  <span class="value-icon"><i class="fa-solid" [class]="valor.icon" aria-hidden="true"></i></span>
+                  <span>{{ t(valor.title) }}</span>
+                </h2>
+                <ul class="value-points">
+                  @for (item of valor.itens; track item.text) {
+                    <li>
+                      <span class="value-icon value-icon--sm"><i class="fa-solid" [class]="item.icon" aria-hidden="true"></i></span>
+                      <span>{{ t(item.text) }}</span>
+                    </li>
+                  }
                 </ul>
-              </div>
-            </div>
-            <div class="value-item">
-              <div>
-                <h5 class="text-xl md:text-2xl font-bold mb-2 md:mb-4 flex items-center text-white gap-3 md:gap-4">
-                  <div class="w-10 md:w-12 flex-shrink-0 flex justify-center">
-                    <i class="fa-solid fa-rocket text-yellow-500 text-2xl md:text-3xl"></i>
-                  </div>
-                  Inovação com Propósito
-                </h5>
-                <ul class="flex flex-col gap-2 md:gap-4">
-                  <li class="text-white text-sm md:text-base flex items-center gap-3 md:gap-4">
-                    <div class="w-10 md:w-12 flex-shrink-0 flex justify-center">
-                      <i class="fa-solid fa-tools text-yellow-500 text-lg md:text-xl"></i>
-                    </div>
-                    <span>Buscamos constantemente as ferramentas mais eficazes.</span>
-                  </li>
-                  <li class="text-white text-sm md:text-base flex items-center gap-3 md:gap-4">
-                    <div class="w-10 md:w-12 flex-shrink-0 flex justify-center">
-                      <i class="fa-solid fa-code text-yellow-500 text-lg md:text-xl"></i>
-                    </div>
-                    <span>Construímos o software que você realmente precisa.</span>
-                  </li>
-                  <li class="text-white text-sm md:text-base flex items-center gap-3 md:gap-4">
-                    <div class="w-10 md:w-12 flex-shrink-0 flex justify-center">
-                      <i class="fa-solid fa-chart-line text-yellow-500 text-lg md:text-xl"></i>
-                    </div>
-                    <span>Trazemos resultados práticos e valiosos para sua empresa.</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+              </section>
+            }
           </div>
         </div>
 
-        <!-- Coluna da Direita: Carrossel de Projetos -->
-        <div class="lg:col-span-5">
-          <div class="project-showcase">
-            <!-- Slides do carrossel -->
-            <div class="carousel-slides relative">
-              @for (project of projects; track project.imgSrc) {
-              <div class="carousel-slide absolute inset-0 transition-opacity duration-500"
-                [class.active]="currentSlide === $index">
-                <img [src]="project.imgSrc" [alt]="project.caption"
-                  class="w-full h-full object-cover rounded-lg shadow-2xl mx-auto" />
-                <div class="project-caption">
-                  <h6 class="font-bold text-lg">DESTAQUE</h6>
-                  <p>{{ project.caption }}</p>
+        <!-- Vitrine: capturas reais do SGA CTRLB -->
+        <section #showcase class="showcase min-w-0" aria-roledescription="carousel" [attr.aria-label]="t('carouselLabel')"
+          [class.is-paused]="paused()"
+          (pointerenter)="setPause('hover', true)" (pointerleave)="setPause('hover', false)"
+          (focusin)="setPause('focus', true)" (focusout)="onFocusOut($event)">
+          <!-- Todos os slides ocupam a mesma célula do grid: a altura é a do slide mais alto,
+               então legendas mais longas (en/es/fr) nunca são cortadas nem fazem a página pular. -->
+          <div class="showcase__stack" (pointerdown)="onSwipeStart($event)" (pointerup)="onSwipeEnd($event)"
+            (pointercancel)="onSwipeCancel()">
+            @for (slide of slides; track slide.id) {
+              <figure class="slide" [class.is-active]="currentSlide() === $index"
+                [attr.aria-hidden]="currentSlide() === $index ? null : 'true'">
+                <div class="slide__frame" [class.slide__frame--illustration]="slide.kind === 'illustration'">
+                  <img [attr.src]="isArmed($index) ? slide.src : null" [alt]="t(slide.alt)" width="1440" height="900"
+                    decoding="async" draggable="false" />
                 </div>
-              </div>
-              }
-            </div>
-            <!-- Pontos de navegação -->
-            <div class="carousel-dots flex justify-center mt-6 space-x-2">
-              @for (project of projects; track project.imgSrc) {
-              <span class="dot w-3 h-3 rounded-full bg-gray-400 cursor-pointer transition-all hover:bg-gray-600"
-                [class.active]="currentSlide === $index" (click)="selectSlide($index)"></span>
+                <figcaption class="slide__caption">
+                  <span class="slide__tag">
+                    <i class="fa-solid" [class]="slide.kind === 'real' ? 'fa-display' : 'fa-pen-ruler'" aria-hidden="true"></i>
+                    {{ t(slide.kind === 'real' ? 'tagReal' : 'tagIllustration') }}
+                  </span>
+                  <p>{{ t(slide.caption) }}</p>
+                  @if (slide.kind === 'real' && t('uiNote')) {
+                    <small>{{ t('uiNote') }}</small>
+                  }
+                </figcaption>
+              </figure>
+            }
+          </div>
+
+          <div class="showcase__controls">
+            @if (!reducedMotion()) {
+              <button type="button" class="showcase__toggle" (click)="toggleUserPause()"
+                [attr.aria-label]="t(userPaused() ? 'play' : 'pause')" [attr.aria-pressed]="userPaused()">
+                <i class="fa-solid" [class]="userPaused() ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+              </button>
+            }
+            <div class="showcase__dots" (keydown)="onDotsKeydown($event)">
+              @for (slide of slides; track slide.id) {
+                <button type="button" class="dot" [class.is-active]="currentSlide() === $index" (click)="goTo($index)"
+                  [attr.aria-label]="t('dot', { n: $index + 1, total: slides.length })"
+                  [attr.aria-current]="currentSlide() === $index ? 'true' : null">
+                  <span class="dot__track">
+                    <span class="dot__fill" (animationend)="onProgressEnd($index)"></span>
+                  </span>
+                </button>
               }
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   </section>

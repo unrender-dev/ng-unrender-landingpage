@@ -11,15 +11,25 @@ const routes: Routes = [
     path: 'sobre',
     loadComponent: () => import('./pages/sobre/sobre').then((m) => m.Sobre),
   },
+  {
+    path: 'loja',
+    loadComponent: () => import('./pages/loja/loja').then((m) => m.Loja),
+  },
+  {
+    path: 'politica',
+    loadComponent: () => import('./pages/politica/politica').then((m) => m.Politica),
+  },
   // ecossistema disabled
   // {
   //   path: 'ecossistema',
   //   loadComponent: () => import('./pages/ecosistema/ecosistema').then((m) => m.Ecosistema),
   // },
   {
-    path: 'galaga',
+    path: 'arcade',
     loadComponent: () => import('./components/galaga-game/galaga-game.component').then((m) => m.GalagaArcadeComponent),
   },
+  // Endereço antigo do jogo: mantém links já compartilhados funcionando.
+  { path: 'galaga', redirectTo: 'arcade', pathMatch: 'full' },
   { path: '**', redirectTo: 'inicio' },
 ];
 

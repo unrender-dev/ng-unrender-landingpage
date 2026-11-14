@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="bg12" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10051c"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg12)"/>
+  <!-- Feixe Laser / Area Imager 2D -->
+  <polygon points="370,155 595,95 595,255" fill="#ef4444" opacity="0.22"/>
+  <line x1="370" y1="155" x2="595" y2="175" stroke="#ef4444" stroke-width="3"/>
+  <!-- QR Code / Código de Barras Alvo -->
+  <rect x="560" y="105" width="130" height="140" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+  <rect x="580" y="125" width="36" height="36" fill="#0f172a"/>
+  <rect x="634" y="125" width="36" height="36" fill="#0f172a"/>
+  <rect x="580" y="175" width="36" height="36" fill="#0f172a"/>
+  <rect x="626" y="175" width="44" height="36" fill="#f99126"/>
+  <text x="625" y="232" font-family="monospace" font-size="11" font-weight="bold" fill="#0f172a" text-anchor="middle">QR PIX / 2D</text>
+  <!-- Leitor 2D + Pedestal USB -->
+  <rect x="235" y="115" width="145" height="80" rx="24" fill="#1e293b" stroke="#f99126" stroke-width="3"/>
+  <rect x="280" y="190" width="48" height="145" rx="16" fill="#334155" stroke="#64748b" stroke-width="2"/>
+  <rect x="195" y="335" width="230" height="55" rx="18" fill="#0f172a" stroke="#f99126" stroke-width="2.5"/>
+  <text x="400" y="435" font-family="sans-serif" font-size="18" font-weight="bold" fill="#ffffff" text-anchor="middle">1D/2D • QR CODE • 2.4 GHz + USB</text>
+  <text x="400" y="460" font-family="monospace" font-size="13" fill="#f99126" text-anchor="middle">SCREEN READING • HANDS-FREE STAND</text>
+</svg>

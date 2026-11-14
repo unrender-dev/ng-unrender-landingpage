@@ -8,7 +8,7 @@ describe('Ecosistema', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [Ecosistema]
+      imports: [Ecosistema]
     })
     .compileComponents();
 

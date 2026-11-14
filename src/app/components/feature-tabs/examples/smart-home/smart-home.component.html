@@ -1,323 +1,191 @@
-<div
-  class="w-full h-[650px] bg-white rounded-xl overflow-hidden border border-slate-200 shadow-lg flex flex-col font-sans select-none">
+<div class="sh" (pointerdown)="onTouch()" (keydown.escape)="closeCamera()">
 
-  <!-- AI Agent Navbar -->
-  <div
-    class="w-full h-16 bg-white border-b border-slate-200 flex items-center px-4 justify-between shrink-0 z-20 relative">
-    <!-- Left: Agent Identity -->
-    <div class="flex items-center gap-3">
-      <div
-        class="w-10 h-10 bg-unrender-purple rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/30 relative">
-        <fa-icon [icon]="faRobot" class="text-white text-lg"></fa-icon>
-        <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse">
-        </div>
-      </div>
-      <div class="hidden sm:block">
-        <h2 class="text-unrender-purple font-bold text-sm leading-tight">Agente Local</h2>
-        <div class="text-[10px] text-slate-500">Online • NPU Ativa</div>
+  <!-- Assistente -->
+  <header class="sh-top">
+    <div class="sh-agent">
+      <span class="sh-avatar">
+        <fa-icon [icon]="faRobot"></fa-icon>
+        <i></i>
+      </span>
+      <div>
+        <strong>{{ t('agent') }}</strong>
+        <small>{{ t('agentStatus') }}</small>
       </div>
     </div>
-
-    <!-- Center: Chat / Status -->
-    <div
-      class="flex-1 mx-4 h-10 bg-gray-100 rounded-lg border border-slate-200 flex items-center px-3 overflow-hidden relative group">
-
-      <!-- Chat History (Visible when not typing) -->
-      <div #chatContainer
-        class="flex-1 overflow-y-auto scrollbar-hide h-full flex flex-col justify-center pr-8 transition-opacity duration-200"
-        [class.opacity-0]="isInputFocused || currentMessage.length > 0">
-        <div *ngFor="let msg of messages" class="text-sm py-0.5"
-          [ngClass]="msg.sender === 'user' ? 'text-right text-unrender-purple font-medium' : 'text-left text-slate-600'">
-          {{ msg.text }}
-        </div>
-      </div>
-
-      <!-- Input Field (Overlay) -->
-      <input type="text" [(ngModel)]="currentMessage" (keydown.enter)="sendMessage()" (focus)="isInputFocused = true"
-        (blur)="isInputFocused = false" placeholder="Digite um comando..."
-        class="absolute inset-0 w-full h-full bg-transparent text-slate-800 text-sm px-3 outline-none placeholder-slate-400"
-        [class.bg-white]="isInputFocused || currentMessage.length > 0"
-        [class.opacity-100]="isInputFocused || currentMessage.length > 0"
-        [class.opacity-0]="!isInputFocused && currentMessage.length === 0">
-
-      <!-- Processing Indicator -->
-      <div *ngIf="isProcessing"
-        class="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1 pointer-events-none z-10">
-        <div class="w-1 h-1 bg-unrender-purple rounded-full animate-bounce" style="animation-delay: 0s"></div>
-        <div class="w-1 h-1 bg-unrender-purple rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-        <div class="w-1 h-1 bg-unrender-purple rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
-      </div>
-    </div>
-
-    <!-- Right: Quick Actions -->
-    <div class="flex items-center gap-2">
-      <button (click)="triggerScenario('find-keys')" [disabled]="isProcessing"
-        class="px-3 py-1.5 bg-white hover:bg-gray-50 rounded text-xs text-slate-700 transition-colors flex items-center gap-2 border border-slate-200 disabled:opacity-50 shadow-sm">
-        <fa-icon [icon]="faSearch"></fa-icon> <span class="hidden sm:inline">Chaves</span>
+    <div class="sh-scenes" role="group" [attr.aria-label]="t('scenes')">
+      <button type="button" (click)="scene('arrive')">
+        <fa-icon [icon]="faHouse"></fa-icon><span>{{ t('sceneArrive') }}</span>
       </button>
-      <button (click)="triggerScenario('good-night')" [disabled]="isProcessing"
-        class="px-3 py-1.5 bg-white hover:bg-gray-50 rounded text-xs text-slate-700 transition-colors flex items-center gap-2 border border-slate-200 disabled:opacity-50 shadow-sm">
-        <fa-icon [icon]="faHome"></fa-icon> <span class="hidden sm:inline">Boa Noite</span>
+      <button type="button" (click)="scene('keys')">
+        <fa-icon [icon]="faMagnifyingGlass"></fa-icon><span>{{ t('sceneKeys') }}</span>
+      </button>
+      <button type="button" (click)="scene('night')">
+        <fa-icon [icon]="faMoon"></fa-icon><span>{{ t('sceneNight') }}</span>
       </button>
     </div>
+  </header>
+
+  <div class="sh-chat">
+    <div #log class="sh-log" role="log" aria-live="polite" [attr.aria-label]="t('log')" tabindex="0">
+      @for (m of messages(); track m.id) {
+        <p [class.is-user]="m.from === 'user'"><span>{{ textOf(m) }}</span></p>
+      }
+      <p class="sh-typing" [class.is-on]="busy()" aria-hidden="true"><span><i></i><i></i><i></i></span></p>
+    </div>
+    <form class="sh-form" (submit)="send($event)">
+      <input type="text" [value]="command()" (input)="onCommand($event)" [placeholder]="t('placeholder')"
+        [attr.aria-label]="t('commandLabel')" autocomplete="off" enterkeyhint="send" />
+      <button type="submit" [disabled]="!command().trim()" [attr.aria-label]="t('send')">
+        <fa-icon [icon]="faPaperPlane"></fa-icon>
+      </button>
+    </form>
   </div>
 
-  <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-    <!-- Controls Panel -->
-    <div class="w-full md:w-1/3 bg-white border-r border-slate-200 p-6 overflow-y-auto">
-      <h2 class="text-xl font-bold text-unrender-purple mb-6 flex items-center gap-2">
-        <span class="text-unrender-accent">🏠</span> Controles
-      </h2>
+  <div class="sh-body">
+    <!-- Planta -->
+    <div class="sh-plan-wrap">
+      <div class="sh-plan" role="img" [attr.aria-label]="t('plan')">
 
-      <div *ngFor="let room of rooms" class="mb-6">
-        <h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-2">{{ room }}</h3>
-        <div class="space-y-2">
-          <div *ngFor="let device of getDevicesByRoom(room)" (click)="toggleDevice(device)"
-            class="flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-200 border gap-2"
-            [ngClass]="device.isOn ? 'bg-unrender-purple/10 border-unrender-purple/30 shadow-[0_0_15px_rgba(16,5,28,0.1)]' : 'bg-gray-50 border-slate-200 hover:bg-gray-100'">
+        <!-- Sala -->
+        <div class="sh-room" [style.--b]="glow('l1')" style="--gx: 50%; --gy: 50%">
+          <span class="sh-glow"></span>
+          <span class="sh-label">{{ t('rLiving') }}</span>
+          <span class="sh-furn" style="left: 8%; bottom: 10%; width: 48%; height: 17%"></span>
+          <span class="sh-tv" [class.is-on]="st('t1').on"><i></i></span>
+          <span class="sh-ac" [class.is-on]="st('a1').on" style="right: 22%"><span><i></i><i></i><i></i></span></span>
+          <span class="sh-bulb" [class.is-on]="st('l1').on" style="left: 50%; top: 50%"></span>
+          <span class="sh-lock" [class.is-locked]="st('lock1').on">
+            <fa-icon class="sh-lock-closed" [icon]="faLock"></fa-icon>
+            <fa-icon class="sh-lock-open" [icon]="faLockOpen"></fa-icon>
+          </span>
+          <span class="sh-keys" [class.is-on]="keysFound()">
+            <fa-icon [icon]="faKey"></fa-icon>
+            <b>{{ t('keysTag') }}</b>
+          </span>
+          <span class="sh-scan" [class.is-on]="scanningRoom() === 'living'"><i></i><b>{{ t('scanning') }}</b></span>
+        </div>
 
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-              <div
-                class="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 text-sm shrink-0"
-                [ngClass]="device.isOn || device.type === 'camera' ? 'bg-unrender-purple text-white' : 'bg-slate-200 text-slate-500'">
-                <fa-icon [icon]="device.icon"></fa-icon>
-              </div>
-              <div class="min-w-0">
-                <div class="text-slate-800 font-medium text-xs sm:text-sm truncate">{{ device.name }}</div>
-                <div class="text-[10px] text-slate-500 truncate" *ngIf="device.type === 'ac' && device.isOn">
-                  {{ device.value }}°C • Resfriando
-                </div>
-              </div>
-            </div>
+        <!-- Cozinha -->
+        <div class="sh-room" [style.--b]="glow('l2')" style="--gx: 50%; --gy: 50%">
+          <span class="sh-glow"></span>
+          <span class="sh-label">{{ t('rKitchen') }}</span>
+          <span class="sh-furn" style="right: 0; bottom: 0; width: 52%; height: 24%; border-radius: 0.5em 0 0 0"></span>
+          <span class="sh-fan" [class.is-on]="st('f1').on"><span #fan><fa-icon [icon]="faFan"></fa-icon></span></span>
+          <span class="sh-bulb" [class.is-on]="st('l2').on" style="left: 50%; top: 50%"></span>
+          <span class="sh-scan" [class.is-on]="scanningRoom() === 'kitchen'"><i></i><b>{{ t('scanning') }}</b></span>
+        </div>
 
-            <!-- Toggle Switch (Hidden for Camera) -->
-            <div *ngIf="device.type !== 'camera'"
-              class="w-8 h-4 rounded-full relative transition-colors duration-200 shrink-0"
-              [ngClass]="device.isOn ? 'bg-unrender-purple' : 'bg-slate-300'">
-              <div class="absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200 shadow-sm"
-                [style.left.px]="device.isOn ? 18 : 2"></div>
-            </div>
+        <!-- Quarto -->
+        <div class="sh-room" [style.--b]="glow('l3')" style="--gx: 82%; --gy: 46%">
+          <span class="sh-glow"></span>
+          <span class="sh-label">{{ t('rBedroom') }}</span>
+          <span class="sh-furn sh-bed" style="right: 22%; bottom: 10%; width: 40%; height: 48%"></span>
+          <span class="sh-ac" [class.is-on]="st('a2').on" style="right: 30%"><span><i></i><i></i><i></i></span></span>
+          <span class="sh-bulb" [class.is-on]="st('l3').on" style="left: 86%; top: 46%"></span>
+          <span class="sh-scan" [class.is-on]="scanningRoom() === 'bedroom'"><i></i><b>{{ t('scanning') }}</b></span>
+        </div>
 
-            <!-- View Button for Camera -->
-            <div *ngIf="device.type === 'camera'"
-              class="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-[10px] text-slate-700 font-bold transition-colors shrink-0">
-              VER
-            </div>
-          </div>
+        <!-- Escritório -->
+        <div class="sh-room" [style.--b]="glow('l4')" style="--gx: 30%; --gy: 52%">
+          <span class="sh-glow"></span>
+          <span class="sh-label">{{ t('rOffice') }}</span>
+          <span class="sh-furn" style="left: 10%; top: 54%; width: 42%; height: 18%"></span>
+          <span class="sh-bulb" [class.is-on]="st('l4').on" style="left: 30%; top: 50%"></span>
+          <button type="button" class="sh-cam" (click)="openCamera($event)" [attr.aria-label]="t('camOpen')">
+            <fa-icon [icon]="faVideo"></fa-icon>
+          </button>
+          <span class="sh-scan" [class.is-on]="scanningRoom() === 'office'"><i></i><b>{{ t('scanning') }}</b></span>
         </div>
       </div>
     </div>
 
-    <!-- Visual Floor Plan -->
-    <div class="w-full md:w-2/3 bg-gray-50 relative p-4 flex items-center justify-center">
-      <!-- Floor Plan Container -->
-      <div
-        class="relative w-full max-w-lg aspect-square bg-white rounded-2xl border-4 border-slate-200 shadow-xl overflow-hidden">
-
-        <!-- Rooms Grid -->
-        <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-2 p-2 bg-gray-100">
-
-          <!-- Sala de Estar (Top Left) -->
-          <div class="bg-white rounded-xl relative p-4 transition-colors duration-500 overflow-hidden"
-            [ngClass]="{'bg-gray-50': getDevicesByRoom('Sala de Estar')[0].isOn}"> <!-- Light effect -->
-            <div class="absolute top-2 left-2 text-xs text-slate-400 font-bold uppercase z-10">Sala</div>
-
-            <!-- Furniture -->
-            <div class="absolute bottom-4 left-4 w-24 h-8 bg-gray-200 rounded-md"></div> <!-- Sofa -->
-            <div
-              class="absolute top-1/2 right-2 w-2 h-16 bg-slate-800 rounded-sm border border-slate-300 transition-shadow duration-300 transform -translate-y-1/2"
-              [ngClass]="{'shadow-[0_0_30px_rgba(59,130,246,0.6)] bg-blue-900': getDevicesByRoom('Sala de Estar')[1].isOn}">
-            </div> <!-- TV -->
-
-            <!-- AC Unit -->
-            <div
-              class="absolute top-2 right-8 w-12 h-4 bg-white border border-slate-200 rounded-sm transition-all duration-300 flex items-center justify-center gap-1 z-10"
-              [ngClass]="{'shadow-[0_0_15px_rgba(59,130,246,0.4)]': getDevicesByRoom('Sala de Estar')[2].isOn}">
-              <div class="w-1 h-1 bg-green-500 rounded-full" *ngIf="getDevicesByRoom('Sala de Estar')[2].isOn"></div>
-            </div>
-
-            <!-- AC Air Flow -->
-            <div *ngIf="getDevicesByRoom('Sala de Estar')[2].isOn"
-              class="absolute top-6 right-8 w-12 h-20 flex justify-around overflow-hidden pointer-events-none">
-              <div class="w-0.5 h-4 bg-blue-400/30 rounded-full animate-air-flow-down" style="animation-delay: 0s;">
+    <!-- Controles -->
+    <section class="sh-controls">
+      <h3>{{ t('controls') }}</h3>
+      <div class="sh-rooms">
+        @for (room of rooms; track room.id) {
+          <div class="sh-group">
+            <h4>{{ t(room.name) }}</h4>
+            @for (d of room.devices; track d.id) {
+              @let s = st(d.id);
+              <div class="sh-dev" [class.is-on]="s.on" [attr.data-type]="d.type">
+                @if (d.type === 'camera') {
+                  <button type="button" class="sh-dev-main" (click)="openCamera($event)">
+                    <span class="sh-dev-icon"><fa-icon [icon]="d.icon"></fa-icon></span>
+                    <span class="sh-dev-text"><b>{{ t(d.name) }}</b><small>{{ statusOf(d) }}</small></span>
+                    <span class="sh-view">{{ t('view') }}</span>
+                  </button>
+                } @else {
+                  <button type="button" class="sh-dev-main" role="switch" [attr.aria-checked]="s.on"
+                    (click)="toggle(d.id)">
+                    <span class="sh-dev-icon"><fa-icon [icon]="d.icon"></fa-icon></span>
+                    <span class="sh-dev-text"><b>{{ t(d.name) }}</b><small>{{ statusOf(d) }}</small></span>
+                    <span class="sh-switch" aria-hidden="true"><i></i></span>
+                  </button>
+                }
+                @if (d.type === 'light') {
+                  <input class="sh-dim" type="range" min="10" max="100" step="5" [value]="s.value" [disabled]="!s.on"
+                    (input)="setValue(d.id, $event)" [attr.aria-label]="t('brightness') + ': ' + t(d.name)" />
+                }
+                @if (d.type === 'ac') {
+                  <div class="sh-temp" [class.is-off]="!s.on">
+                    <button type="button" (click)="nudge(d.id, -1)" [disabled]="!s.on || s.value <= 16"
+                      [attr.aria-label]="t('tempDown')"><fa-icon [icon]="faMinus"></fa-icon></button>
+                    <output>{{ s.value }} °C</output>
+                    <button type="button" (click)="nudge(d.id, 1)" [disabled]="!s.on || s.value >= 30"
+                      [attr.aria-label]="t('tempUp')"><fa-icon [icon]="faPlus"></fa-icon></button>
+                  </div>
+                }
               </div>
-              <div class="w-0.5 h-4 bg-blue-400/30 rounded-full animate-air-flow-down" style="animation-delay: 0.3s;">
-              </div>
-              <div class="w-0.5 h-4 bg-blue-400/30 rounded-full animate-air-flow-down" style="animation-delay: 0.6s;">
-              </div>
-            </div>
-
-            <!-- TV Light Emission -->
-            <div *ngIf="getDevicesByRoom('Sala de Estar')[1].isOn"
-              class="absolute right-4 w-40 h-32 transform -translate-y-1/2 top-1/2 bg-gradient-to-l from-blue-400/30 to-transparent blur-xl animate-tv-flicker pointer-events-none"
-              style="clip-path: polygon(100% 25%, 0% 0%, 0% 100%, 100% 75%);"></div>
-
-            <!-- Light Source -->
-            <div
-              class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full transition-all duration-300"
-              [ngClass]="getDevicesByRoom('Sala de Estar')[0].isOn ? 'bg-yellow-200 shadow-[0_0_60px_30px_rgba(253,224,71,0.15)]' : 'bg-gray-300'">
-            </div>
-
-            <!-- Scanning Overlay -->
-            <div *ngIf="scanningRoom === 'Sala de Estar'"
-              class="absolute inset-0 bg-unrender-accent/10 z-20 flex items-center justify-center pointer-events-none">
-              <div class="w-full h-0.5 bg-unrender-accent/50 absolute top-0 animate-scan-line"></div>
-              <div
-                class="text-unrender-accent font-mono text-[10px] bg-white/80 px-2 rounded border border-unrender-accent/20">
-                ANALISANDO...</div>
-            </div>
-
-            <!-- Detection Box (Keys) -->
-            <div *ngIf="detectedItem && detectedItem.label === 'Chaves'"
-              class="absolute w-6 h-6 border-2 border-unrender-accent rounded z-30 animate-ping-once"
-              style="bottom: 1.5rem; left: 2.5rem;">
-              <div
-                class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-unrender-accent text-white text-[8px] font-bold px-1 rounded whitespace-nowrap">
-                CHAVES
-              </div>
-            </div>
+            }
           </div>
-
-          <!-- Cozinha (Top Right) -->
-          <div class="bg-white rounded-xl relative p-4 transition-colors duration-500 overflow-hidden"
-            [ngClass]="{'bg-gray-50': getDevicesByRoom('Cozinha')[0].isOn}">
-            <div class="absolute top-2 left-2 text-xs text-slate-400 font-bold uppercase z-10">Cozinha</div>
-
-            <!-- Furniture -->
-            <div class="absolute bottom-0 right-0 w-24 h-12 bg-gray-200 rounded-tl-xl"></div> <!-- Counter -->
-
-            <!-- Fan -->
-            <div class="absolute top-4 right-4 text-slate-300 transition-all duration-1000 z-10"
-              [ngClass]="{'animate-spin text-blue-400': getDevicesByRoom('Cozinha')[1].isOn}">
-              <fa-icon [icon]="faFan" size="lg"></fa-icon>
-            </div>
-
-            <!-- Fan Air Flow -->
-            <div *ngIf="getDevicesByRoom('Cozinha')[1].isOn"
-              class="absolute top-[-1.15rem] right-[-0.5rem] w-20 h-20 pointer-events-none">
-              <div class="absolute top-1/2 left-1/2 w-1 h-4 bg-slate-400/20 rounded-full animate-air-flow-spin"
-                style="animation-delay: 0s;"></div>
-              <div class="absolute top-1/2 left-1/2 w-1 h-4 bg-slate-400/20 rounded-full animate-air-flow-spin"
-                style="animation-delay: 0.2s;"></div>
-              <div class="absolute top-1/2 left-1/2 w-1 h-4 bg-slate-400/20 rounded-full animate-air-flow-spin"
-                style="animation-delay: 0.4s;"></div>
-            </div>
-
-            <!-- Light Source -->
-            <div
-              class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full transition-all duration-300"
-              [ngClass]="getDevicesByRoom('Cozinha')[0].isOn ? 'bg-yellow-200 shadow-[0_0_60px_30px_rgba(253,224,71,0.15)]' : 'bg-gray-300'">
-            </div>
-
-            <!-- Scanning Overlay -->
-            <div *ngIf="scanningRoom === 'Cozinha'"
-              class="absolute inset-0 bg-unrender-accent/10 z-20 flex items-center justify-center pointer-events-none">
-              <div class="w-full h-0.5 bg-unrender-accent/50 absolute top-0 animate-scan-line"></div>
-              <div
-                class="text-unrender-accent font-mono text-[10px] bg-white/80 px-2 rounded border border-unrender-accent/20">
-                ANALISANDO...</div>
-            </div>
-          </div>
-
-          <!-- Quarto (Bottom Left) -->
-          <div class="bg-white rounded-xl relative p-4 transition-colors duration-500 overflow-hidden"
-            [ngClass]="{'bg-gray-50': getDevicesByRoom('Quarto')[0].isOn}">
-            <div class="absolute top-2 left-2 text-xs text-slate-400 font-bold uppercase z-10">Quarto</div>
-
-            <!-- Furniture -->
-            <div class="absolute bottom-4 right-4 w-20 h-24 bg-gray-200 rounded-md border-t-4 border-gray-300"></div>
-            <!-- Bed -->
-
-            <!-- AC Unit -->
-            <div
-              class="absolute top-2 right-8 w-12 h-4 bg-white border border-slate-200 rounded-sm transition-all duration-300 flex items-center justify-center gap-1 z-10"
-              [ngClass]="{'shadow-[0_0_15px_rgba(59,130,246,0.4)]': getDevicesByRoom('Quarto')[1].isOn}">
-              <div class="w-1 h-1 bg-green-500 rounded-full" *ngIf="getDevicesByRoom('Quarto')[1].isOn"></div>
-            </div>
-
-            <!-- AC Air Flow -->
-            <div *ngIf="getDevicesByRoom('Quarto')[1].isOn"
-              class="absolute top-6 right-8 w-12 h-20 flex justify-around overflow-hidden pointer-events-none">
-              <div class="w-0.5 h-4 bg-blue-400/30 rounded-full animate-air-flow-down" style="animation-delay: 0s;">
-              </div>
-              <div class="w-0.5 h-4 bg-blue-400/30 rounded-full animate-air-flow-down" style="animation-delay: 0.3s;">
-              </div>
-              <div class="w-0.5 h-4 bg-blue-400/30 rounded-full animate-air-flow-down" style="animation-delay: 0.6s;">
-              </div>
-            </div>
-
-            <!-- Light Source -->
-            <div class="absolute bottom-12 right-2 w-3 h-3 rounded-full transition-all duration-300"
-              [ngClass]="getDevicesByRoom('Quarto')[0].isOn ? 'bg-yellow-200 shadow-[0_0_40px_20px_rgba(253,224,71,0.15)]' : 'bg-gray-300'">
-            </div>
-
-            <!-- Scanning Overlay -->
-            <div *ngIf="scanningRoom === 'Quarto'"
-              class="absolute inset-0 bg-unrender-accent/10 z-20 flex items-center justify-center pointer-events-none">
-              <div class="w-full h-0.5 bg-unrender-accent/50 absolute top-0 animate-scan-line"></div>
-              <div
-                class="text-unrender-accent font-mono text-[10px] bg-white/80 px-2 rounded border border-unrender-accent/20">
-                ANALISANDO...</div>
-            </div>
-          </div>
-
-          <!-- Escritório (Bottom Right) -->
-          <div class="bg-white rounded-xl relative p-4 transition-colors duration-500 overflow-hidden"
-            [ngClass]="{'bg-gray-50': getDevicesByRoom('Escritório')[0].isOn}">
-            <div class="absolute top-2 left-2 text-xs text-slate-400 font-bold uppercase z-10">Escritório</div>
-
-            <!-- Furniture -->
-            <div class="absolute top-1/2 left-4 w-16 h-8 bg-gray-200 rounded-md"></div> <!-- Desk -->
-
-            <div class="absolute top-2 right-2 text-red-500 cursor-pointer hover:text-red-600 transition-colors"
-              (click)="activeCameraFeed = 'c1'; $event.stopPropagation()">
-              <fa-icon [icon]="faVideo"></fa-icon>
-            </div>
-
-            <!-- Light Source -->
-            <div class="absolute top-1/2 left-8 w-3 h-3 rounded-full transition-all duration-300"
-              [ngClass]="getDevicesByRoom('Escritório')[0].isOn ? 'bg-yellow-200 shadow-[0_0_40px_20px_rgba(253,224,71,0.15)]' : 'bg-gray-300'">
-            </div>
-
-            <!-- Scanning Overlay -->
-            <div *ngIf="scanningRoom === 'Escritório'"
-              class="absolute inset-0 bg-unrender-accent/10 z-20 flex items-center justify-center pointer-events-none">
-              <div class="w-full h-0.5 bg-unrender-accent/50 absolute top-0 animate-scan-line"></div>
-              <div
-                class="text-unrender-accent font-mono text-[10px] bg-white/80 px-2 rounded border border-unrender-accent/20">
-                ANALISANDO...</div>
-            </div>
-          </div>
-
-        </div>
+        }
       </div>
-    </div>
+    </section>
   </div>
 
-  <!-- Camera Feed Overlay -->
-  <div *ngIf="activeCameraFeed"
-    class="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm"
-    (click)="closeCameraFeed()">
-    <div class="bg-white p-2 rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200"
+  <!-- Câmera: cena desenhada em código (nenhuma imagem de terceiros) -->
+  <div class="sh-camera" [class.is-on]="cameraOpen()" [attr.inert]="cameraOpen() ? null : ''" (click)="closeCamera()">
+    <div class="sh-camera-box" role="dialog" aria-modal="true" [attr.aria-label]="t('camTitle')"
       (click)="$event.stopPropagation()">
-      <div class="flex justify-between items-center mb-2 px-2">
-        <div class="flex items-center gap-2">
-          <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-          <span class="text-slate-800 font-bold">Câmera Escritório - Ao Vivo</span>
-        </div>
-        <button (click)="closeCameraFeed()" class="text-slate-400 hover:text-slate-600">✕</button>
+      <div class="sh-camera-head">
+        <span><i></i><b>{{ t('camTitle') }}</b> · {{ t('live') }}</span>
+        <button #closeBtn type="button" (click)="closeCamera()" [attr.aria-label]="t('close')">
+          <fa-icon [icon]="faXmark"></fa-icon>
+        </button>
       </div>
-      <div class="aspect-video bg-black rounded-lg overflow-hidden relative">
-        <!-- Placeholder for Camera Feed -->
-        <img
-          src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExb3V5eGk2eGk2eGk2eGk2eGk2eGk2eGk2eGk2eGk2eGk2eGk2/L1R1TVOXXGh2w/giphy.gif"
-          alt="Camera Feed" class="w-full h-full object-cover opacity-50">
-        <div class="absolute inset-0 flex items-center justify-center">
-          <div class="text-slate-500 font-mono">SINAL DA CÂMERA</div>
-        </div>
-        <div class="absolute bottom-4 right-4 text-white font-mono text-sm bg-black/50 px-2 rounded">
-          {{ 'REC' }}
-        </div>
+      <div class="sh-feed" role="img" [attr.aria-label]="t('camScene')">
+        <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="320" height="180" fill="#27303b" />
+          <rect y="128" width="320" height="52" fill="#1b222b" />
+          <!-- janela -->
+          <rect x="22" y="22" width="74" height="70" rx="2" fill="#566b80" />
+          <path d="M59 22v70M22 57h74" stroke="#27303b" stroke-width="3" />
+          <path d="M96 92l60 60H40z" fill="#566b80" opacity=".12" />
+          <!-- estante -->
+          <rect x="232" y="30" width="66" height="5" fill="#46515e" />
+          <rect x="240" y="14" width="8" height="16" fill="#6b7785" />
+          <rect x="250" y="18" width="6" height="12" fill="#8a6a45" />
+          <rect x="258" y="12" width="9" height="18" fill="#55616e" />
+          <circle cx="284" cy="24" r="6" fill="#4d6a55" />
+          <!-- mesa e monitor -->
+          <rect x="112" y="112" width="150" height="8" rx="2" fill="#7a654c" />
+          <rect x="120" y="120" width="6" height="42" fill="#5b4b39" />
+          <rect x="248" y="120" width="6" height="42" fill="#5b4b39" />
+          <rect x="150" y="62" width="74" height="44" rx="3" fill="#11161c" />
+          <rect class="sh-feed-screen" x="154" y="66" width="66" height="36" fill="#f99126" opacity=".55" />
+          <path d="M160 74h34M160 82h50M160 90h26" stroke="#11161c" stroke-width="3" opacity=".55" />
+          <rect x="183" y="106" width="8" height="6" fill="#11161c" />
+          <rect x="236" y="100" width="12" height="12" rx="2" fill="#55616e" />
+          <!-- cadeira -->
+          <rect x="172" y="122" width="34" height="30" rx="6" fill="#39434f" />
+          <rect x="186" y="152" width="6" height="14" fill="#2c343e" />
+          <path d="M170 168h38" stroke="#2c343e" stroke-width="4" stroke-linecap="round" />
+        </svg>
+        <span class="sh-feed-lines"></span>
+        <span class="sh-feed-rec"><i></i>REC</span>
+        <span class="sh-feed-id">CAM 01</span>
+        <span class="sh-feed-time">{{ clockLabel() }}</span>
       </div>
     </div>
   </div>

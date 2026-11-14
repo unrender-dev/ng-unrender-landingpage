@@ -1,315 +1,136 @@
-<div class="monitor-container" #monitorContainer [style.height.px]="containerHeight">
-  <div class="monitor-bezel" [style.transform]="'scale(' + scaleFactor + ')'">
-    <div class="monitor-screen" [ngClass]="os">
+<div class="dsd" [class.os-windows]="os === 'windows'" [class.os-macos]="os === 'macos'" [class.os-linux]="os === 'linux'">
+  <figure class="monitor" #monitor role="group" [attr.aria-label]="t('monitorLabel')">
+    <div class="bezel">
+      <div class="screen" #screen>
 
-      <!-- Desktop Area -->
-      <div class="desktop-area">
-        <!-- Desktop Icons -->
-        <div class="desktop-icon" (click)="openWindow()">
-          <div class="icon-bg">
-            <img src="controlb-png.png" alt="Ctrl+B" style="width: 100%; height: 100%; object-fit: contain;">
+        <!-- Barra superior (variantes macOS e Linux) -->
+        @if (os !== 'windows') {
+          <div class="topbar" aria-hidden="true">
+            @if (os === 'macos') {
+              <span class="top-left">
+                <b>SGA CTRLB</b>
+                <span class="menu">{{ t('menuFile') }}</span>
+                <span class="menu">{{ t('menuEdit') }}</span>
+                <span class="menu">{{ t('menuView') }}</span>
+                <span class="menu">{{ t('menuWindow') }}</span>
+                <span class="menu">{{ t('menuHelp') }}</span>
+              </span>
+              <span class="top-right">
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>{{ day() }} {{ clock() }}</span>
+              </span>
+            } @else {
+              <span class="top-left"><b>{{ t('activities') }}</b></span>
+              <span class="top-center">{{ day() }} {{ clock() }}</span>
+              <span class="top-right">
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-volume-high"></i>
+                <i class="fa-solid fa-battery-full"></i>
+              </span>
+            }
           </div>
-          <span class="icon-label">Ctrl+B</span>
+        }
+
+        <!-- Ícone da área de trabalho -->
+        <button type="button" class="desk-icon" (click)="openWindow()" [attr.aria-label]="t('openApp')">
+          <span class="desk-icon-img"><img src="/ctrlb-logo.png" alt="" /></span>
+          <span class="desk-icon-name">SGA CTRLB</span>
+        </button>
+        <p class="closed-hint" [class.shown]="!isWindowOpen">{{ t('closedHint') }}</p>
+
+        <!-- Janela do sistema, com as capturas reais -->
+        <div class="win" #win [class.is-closed]="!isWindowOpen" [class.is-min]="isMinimized" [class.is-max]="isMaximized"
+          [class.is-dragging]="dragging" [attr.inert]="!isWindowOpen || isMinimized ? '' : null">
+          <div class="titlebar" (pointerdown)="startDrag($event)">
+            <span class="win-app">
+              <img src="/ctrlb-logo.png" alt="" />
+              <span>SGA CTRLB · {{ t(screens[active].label) }}</span>
+            </span>
+            <span class="win-ctrls">
+              <button type="button" class="wc wc-min" (click)="minimizeWindow()" [attr.aria-label]="t('winMin')">
+                <i class="fa-solid fa-minus" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="wc wc-max" (click)="toggleMaximize()"
+                [attr.aria-label]="isMaximized ? t('winRestore') : t('winMax')">
+                <i [class]="isMaximized ? 'fa-regular fa-clone' : 'fa-regular fa-square'" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="wc wc-close" (click)="closeWindow()" [attr.aria-label]="t('winClose')">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </span>
+          </div>
+
+          <div class="screens" role="tablist" [attr.aria-label]="t('screensLabel')">
+            @for (s of screens; track s.key; let i = $index) {
+              <button type="button" role="tab" class="screen-tab" [class.current]="active === i"
+                [attr.aria-selected]="active === i" (click)="select(i)">
+                <i [class]="s.icon" aria-hidden="true"></i>
+                <span>{{ t(s.label) }}</span>
+              </button>
+            }
+          </div>
+
+          <div class="view">
+            <div class="shots">
+              @for (s of screens; track s.key; let i = $index) {
+                @if (loaded.has(i)) {
+                  <img class="shot" [class.current]="active === i" [src]="src(s.file)" [alt]="t(s.alt)"
+                    [attr.aria-hidden]="active !== i" width="1440" height="900" decoding="async" />
+                }
+              }
+            </div>
+          </div>
         </div>
+
+        <!-- Barra de tarefas / dock genéricos (ícones neutros, sem marcas) -->
+        <div class="dock">
+          <span class="dock-ico dock-start" aria-hidden="true"><i class="fa-solid fa-grip"></i></span>
+          <span class="dock-ico dock-search" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+          <span class="dock-ico" aria-hidden="true"><i class="fa-solid fa-folder"></i></span>
+          <button type="button" class="dock-app" [class.running]="isWindowOpen" (click)="restoreWindow()"
+            [attr.aria-label]="t('openApp')">
+            <img src="/ctrlb-logo.png" alt="" />
+          </button>
+          <span class="dock-ico" aria-hidden="true"><i class="fa-solid fa-globe"></i></span>
+          <span class="dock-ico dock-term" aria-hidden="true"><i class="fa-solid fa-terminal"></i></span>
+          @if (os === 'windows') {
+            <span class="tray" aria-hidden="true">
+              <i class="fa-solid fa-wifi"></i>
+              <i class="fa-solid fa-volume-high"></i>
+              <span class="tray-clock"><span>{{ clock() }}</span><span>{{ day() }}</span></span>
+            </span>
+          }
+        </div>
+
+        <button type="button" class="logo-overlay" [class.shown]="showCtrlBImage" [attr.inert]="showCtrlBImage ? null : ''"
+          (click)="showCtrlBImage = false" [attr.aria-label]="t('winClose')">
+          <img src="/ctrlb-logo.png" [alt]="t('logoAlt')" />
+        </button>
       </div>
-
-      <div class="ctrl-b-overlay" *ngIf="showCtrlBImage" (click)="showCtrlBImage = false">
-        <img src="controlb-png.png" alt="Ctrl+B">
-      </div>
-
-      <!-- Draggable Software Window -->
-      <div class="software-window" [ngClass]="{
-             'maximized': isMaximized, 
-             'minimized': isMinimized
-           }" [style.left.px]="!isMaximized ? windowPosition.x : 0"
-        [style.top.px]="!isMaximized ? windowPosition.y : 0" [style.width.px]="!isMaximized ? windowSize.width : null"
-        [style.height.px]="!isMaximized ? windowSize.height : null" *ngIf="isWindowOpen">
-
-        <!-- Window Title Bar -->
-        <div class="title-bar" (mousedown)="startDrag($event)">
-          <!-- Windows Controls (Right) -->
-          <div class="window-title" *ngIf="os === 'windows'">
-            <img src="controlb-png.png" alt="Icon" style="width: 16px; height: 16px;" *ngIf="os === 'windows'">
-            <span>Ctrl+B</span>
-          </div>
-
-          <!-- macOS Controls (Left) -->
-          <div class="window-controls left" *ngIf="os === 'macos'">
-            <div class="control close" (click)="closeWindow()"></div>
-            <div class="control minimize" (click)="minimizeWindow()"></div>
-            <div class="control maximize" (click)="toggleMaximize()"></div>
-          </div>
-
-          <!-- Linux Title -->
-          <div class="window-title" *ngIf="os === 'linux'">
-            Ctrl+B
-          </div>
-
-          <!-- Windows Controls -->
-          <div class="window-controls right" *ngIf="os === 'windows'">
-            <div class="control minimize" (click)="minimizeWindow()">
-              <img src="desktop/minimize-w11.png" alt="Minimize" style="width: 12px;">
-            </div>
-            <div class="control maximize" (click)="toggleMaximize()">
-              <img src="desktop/maximizew11.png" alt="Maximize" style="width: 12px;">
-            </div>
-            <div class="control close" (click)="closeWindow()">
-              <img src="desktop/close-w11.png" alt="Close" style="width: 12px;">
-            </div>
-          </div>
-
-          <!-- Linux Controls -->
-          <div class="window-controls right" *ngIf="os === 'linux'">
-            <div class="control minimize" (click)="minimizeWindow()"><fa-icon [icon]="faWindowMinimize"></fa-icon></div>
-            <div class="control maximize" (click)="toggleMaximize()"><fa-icon [icon]="faWindowMaximize"></fa-icon></div>
-            <div class="control close" (click)="closeWindow()"><fa-icon [icon]="faTimes"></fa-icon></div>
-          </div>
-        </div>
-
-        <!-- Window Content -->
-        <div class="window-content">
-          <!-- Sidebar -->
-          <!-- Sidebar -->
-          <div class="sidebar">
-            <div class="sidebar-item" [class.active]="activeTab === 'dashboard'" (click)="setActiveTab('dashboard')">
-              <fa-icon [icon]="faThLarge"></fa-icon>
-              <span>Dashboard</span>
-            </div>
-            <div class="sidebar-item" [class.active]="activeTab === 'arquivos'" (click)="setActiveTab('arquivos')">
-              <fa-icon [icon]="faFolder"></fa-icon>
-              <span>Arquivos</span>
-            </div>
-            <div class="sidebar-item" [class.active]="activeTab === 'ia'" (click)="setActiveTab('ia')">
-              <fa-icon [icon]="faBrain"></fa-icon>
-              <span>IA</span>
-            </div>
-            <div class="sidebar-item" [class.active]="activeTab === 'config'" (click)="setActiveTab('config')">
-              <fa-icon [icon]="faCog"></fa-icon>
-              <span>Config</span>
-            </div>
-          </div>
-
-          <!-- Main View -->
-          <div class="main-view">
-            <!-- Dashboard View -->
-            <ng-container *ngIf="activeTab === 'dashboard'">
-              <div class="header-flex">
-                <div>
-                  <h1>Bem-vindo, Admin</h1>
-                  <p class="subtitle">{{ currentDate }} - {{ currentTime }}</p>
-                </div>
-                <div class="os-badge">{{ os === 'macos' ? 'OSX' : (os | titlecase) }}</div>
-              </div>
-
-              <div class="stats-grid">
-                <div class="stat-card">
-                  <h3>Usuários</h3>
-                  <div class="value">1,204</div>
-                  <div class="chart-mini bar-chart">
-                    <div class="bar" style="height: 40%"></div>
-                    <div class="bar" style="height: 70%"></div>
-                    <div class="bar" style="height: 50%"></div>
-                    <div class="bar" style="height: 90%"></div>
-                    <div class="bar" style="height: 60%"></div>
-                  </div>
-                </div>
-                <div class="stat-card">
-                  <h3>Vendas</h3>
-                  <div class="value">$45k</div>
-                  <div class="chart-mini line-chart-svg">
-                    <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-                      <path d="M0,35 C20,35 20,10 40,10 C60,10 60,25 80,25 C90,25 90,5 100,5" fill="none"
-                        stroke="#27c93f" stroke-width="2" />
-                    </svg>
-                  </div>
-                </div>
-                <div class="stat-card">
-                  <h3>Ativos</h3>
-                  <div class="value">85%</div>
-                  <div class="pie-chart-mini"></div>
-                </div>
-              </div>
-
-              <!-- Main Chart Section -->
-              <div class="main-chart-section">
-                <h3>Tendência de Acessos</h3>
-                <div class="chart-container">
-                  <svg viewBox="0 0 800 200" class="main-line-chart">
-                    <!-- Grid Lines -->
-                    <line x1="0" y1="50" x2="800" y2="50" stroke="#eee" />
-                    <line x1="0" y1="100" x2="800" y2="100" stroke="#eee" />
-                    <line x1="0" y1="150" x2="800" y2="150" stroke="#eee" />
-
-                    <!-- Data Path -->
-                    <path d="M0,150 Q200,50 400,100 T800,20" fill="none" stroke="#0078d7" stroke-width="3" />
-
-                    <!-- Area under curve (optional gradient effect simulated with opacity) -->
-                    <path d="M0,150 Q200,50 400,100 T800,20 V200 H0 Z" fill="rgba(0, 120, 215, 0.1)" stroke="none" />
-                  </svg>
-                </div>
-              </div>
-            </ng-container>
-
-            <!-- Arquivos View -->
-            <ng-container *ngIf="activeTab === 'arquivos'">
-              <h1>Arquivos e Integração Nativa</h1>
-              <p class="description">Gestão completa de hardware e bibliotecas nativas.</p>
-
-              <div class="content-grid">
-                <div class="info-card">
-                  <h3><fa-icon [icon]="faDesktop"></fa-icon> Hardware</h3>
-                  <ul>
-                    <li>Impressoras térmicas</li>
-                    <li>Leitores biométricos</li>
-                    <li>Câmeras e Sensores</li>
-                  </ul>
-                </div>
-
-                <div class="info-card">
-                  <h3><fa-icon [icon]="faCode"></fa-icon> Código Nativo</h3>
-                  <p>Integração direta com bibliotecas do sistema:</p>
-                  <div class="code-snippet">
-                    <span *ngIf="os === 'windows'">driver_win32.dll</span>
-                    <span *ngIf="os === 'linux'">lib_driver.so</span>
-                    <span *ngIf="os === 'macos'">lib_driver.dylib</span>
-                  </div>
-                  <p class="small">Adaptado automaticamente para {{ os | titlecase }}.</p>
-                </div>
-              </div>
-            </ng-container>
-
-            <!-- IA View -->
-            <ng-container *ngIf="activeTab === 'ia'">
-              <div class="chat-wrapper">
-                <div class="chat-header">
-                  <h1>Assistente Virtual</h1>
-                  <div class="status-badge online">
-                    <div class="dot"></div> Online
-                  </div>
-                </div>
-                <div class="chat-container">
-                  <app-chat-widget
-                    [systemMessage]="'Você é um assistente virtual integrado ao sistema operacional simulado. Responda de forma curta e prestativa.'"
-                    apiKey="demo-key"></app-chat-widget>
-                </div>
-              </div>
-            </ng-container>
-
-            <!-- Config View -->
-            <ng-container *ngIf="activeTab === 'config'">
-              <h1>Configurações</h1>
-              <div class="config-list">
-                <div class="config-item" (click)="toggleConfig('notifications')">
-                  <span>Notificações</span>
-                  <div class="toggle" [class.checked]="config.notifications"></div>
-                </div>
-                <div class="config-item" (click)="toggleConfig('updates')">
-                  <span>Atualizações Automáticas</span>
-                  <div class="toggle" [class.checked]="config.updates"></div>
-                </div>
-              </div>
-            </ng-container>
-          </div>
-        </div>
-      </div>
-
-
-      <!-- Taskbar / Dock -->
-
-      <!-- Windows Taskbar -->
-      <div class="taskbar windows" *ngIf="os === 'windows'">
-        <div class="start-button">
-          <fa-icon [icon]="faWindowsBrand"></fa-icon>
-        </div>
-        <div class="taskbar-icons">
-          <div class="task-icon"><fa-icon [icon]="faSearch"></fa-icon></div>
-          <div class="task-icon">
-            <img src="desktop/edge.png" alt="Edge" style="width: 24px; height: 24px;">
-          </div>
-          <div class="task-icon">
-            <img src="desktop/files.png" alt="Files" style="width: 24px; height: 24px;">
-          </div>
-          <div class="task-icon active" [class.open]="isWindowOpen" (click)="restoreWindow()">
-            <img src="controlb-png.png" alt="Ctrl+B" style="width: 24px; height: 24px;">
-            <div class="indicator" *ngIf="isWindowOpen"></div>
-          </div>
-        </div>
-        <div class="system-tray">
-          <fa-icon [icon]="faWifi"></fa-icon>
-          <fa-icon [icon]="faVolumeUp"></fa-icon>
-          <div class="clock">
-            <span class="time">{{ currentTime }}</span>
-            <span class="date">{{ currentDate }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- macOS Dock & Top Bar -->
-      <ng-container *ngIf="os === 'macos'">
-        <div class="macos-topbar" *ngIf="!isMaximized">
-          <div class="left">
-            <img src="controlb-png.png" alt="Logo" style="height: 16px;">
-            <span class="bold">Ctrl+B</span>
-            <span>Arquivo</span>
-            <span>Editar</span>
-            <span>Visualizar</span>
-            <span>Janela</span>
-            <span>Ajuda</span>
-          </div>
-          <div class="right">
-            <fa-icon [icon]="faWifi"></fa-icon>
-            <fa-icon [icon]="faSearch"></fa-icon>
-            <span class="clock">{{ currentTime }}</span>
-          </div>
-        </div>
-        <div class="dock-container" *ngIf="!isMaximized">
-          <div class="dock">
-            <div class="dock-icon">
-              <img src="desktop/finder.png" alt="Finder" style="width: 100%; height: 100%; object-fit: contain;">
-            </div>
-            <div class="dock-icon">
-              <img src="desktop/email.png" alt="Mail" style="width: 100%; height: 100%; object-fit: contain;">
-            </div>
-            <div class="dock-icon active" (click)="restoreWindow()">
-              <img src="controlb-png.png" alt="Ctrl+B" style="width: 100%; height: 100%; object-fit: contain;">
-              <div class="dot" *ngIf="isWindowOpen"></div>
-            </div>
-            <div class="dock-icon">
-              <img src="desktop/facetime.png" alt="FaceTime" style="width: 100%; height: 100%; object-fit: contain;">
-            </div>
-            <div class="dock-separator"></div>
-            <div class="dock-icon">
-              <img src="desktop/files.png" alt="Bin" style="width: 100%; height: 100%; object-fit: contain;">
-            </div>
-          </div>
-        </div>
-      </ng-container>
-
-      <!-- Linux (Ubuntu style) Top Bar & Side Dock -->
-      <ng-container *ngIf="os === 'linux'">
-        <div class="linux-topbar">
-          <div class="left">Atividades</div>
-          <div class="center">{{ currentDate }} {{ currentTime }}</div>
-          <div class="right">
-            <fa-icon [icon]="faWifi"></fa-icon>
-            <fa-icon [icon]="faVolumeUp"></fa-icon>
-            <fa-icon [icon]="faBatteryFull"></fa-icon>
-          </div>
-        </div>
-        <div class="linux-dock">
-          <div class="dock-icon"><fa-icon [icon]="faThLarge"></fa-icon></div>
-          <div class="dock-icon active" (click)="restoreWindow()">
-            <img src="controlb-png.png" alt="Ctrl+B" style="width: 24px; height: 24px;">
-            <div class="dot" *ngIf="isWindowOpen"></div>
-          </div>
-          <div class="dock-icon"><fa-icon [icon]="faFolder"></fa-icon></div>
-          <div class="dock-icon"><fa-icon [icon]="faTerminal"></fa-icon></div>
-          <div class="dock-icon"><fa-icon [icon]="faGlobe"></fa-icon></div>
-        </div>
-      </ng-container>
-
     </div>
+    <div class="stand" aria-hidden="true"></div>
+    <figcaption>
+      <i class="fa-solid fa-camera" aria-hidden="true"></i> {{ t('caption') }}
+    </figcaption>
+  </figure>
+
+  <div class="about">
+    <p class="eyebrow"><i class="fa-solid fa-desktop" aria-hidden="true"></i> {{ stack[os] }}</p>
+    <p class="intro">{{ t('lead') }}</p>
+    <ul class="native">
+      <li>
+        <span class="native-ico" aria-hidden="true"><i class="fa-solid fa-print"></i></span>
+        <span><b>{{ t('hwTitle') }}</b><span>{{ t('hwText') }}</span></span>
+      </li>
+      <li>
+        <span class="native-ico" aria-hidden="true"><i class="fa-solid fa-code"></i></span>
+        <span><b>{{ t('nativeTitle') }}</b><span>{{ t(nativeKey) }}</span></span>
+      </li>
+      <li>
+        <span class="native-ico" aria-hidden="true"><i class="fa-solid fa-arrows-rotate"></i></span>
+        <span><b>{{ t('updTitle') }}</b><span>{{ t('updText') }}</span></span>
+      </li>
+    </ul>
   </div>
-  <div class="monitor-stand"></div>
-  <div class="monitor-base"></div>
 </div>

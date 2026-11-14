@@ -1,27 +1,68 @@
 .loading-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(255, 255, 255, 0.9);
+  inset: 0;
   z-index: 9999;
   display: flex;
   justify-content: center;
   align-items: center;
-  backdrop-filter: blur(4px);
+  background-color: rgba(255, 255, 255, 0.92);
+  // Entra com um pequeno atraso: carregamentos instantâneos não piscam a tela.
+  animation: loading-in 0.25s ease 0.12s both;
 }
 
 .spinner {
   width: 60px;
   height: 60px;
-  border: 6px solid #e5e7eb; /* gray-200 */
-  border-top: 6px solid #10051c; /* unrender-purple */
+  border: 6px solid #e5e7eb;
+  border-top-color: var(--unrender-purple, #10051c);
+  border-right-color: var(--unrender-accent, #f99126);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  // Rotação contínua: 0° e 360° são o mesmo quadro, o loop não tem emenda.
+  animation: loading-spin 0.9s linear infinite;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+// Texto só para leitores de tela.
+.loading-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes loading-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-overlay {
+    animation: none;
+  }
+
+  // Sem giro: o indicador pulsa devagar (vai e volta, sem salto).
+  .spinner {
+    animation: loading-pulse 1.6s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes loading-pulse {
+  from {
+    opacity: 0.45;
+  }
+
+  to {
+    opacity: 1;
+  }
 }

@@ -1,0 +1,170 @@
+<div class="ugs">
+  <!-- Cabeçalho e seletor de páginas -->
+  <header class="ugs-header">
+    <div class="ugs-header-main">
+      <div class="ugs-brand">
+        <span class="ugs-brand-icon" aria-hidden="true"><fa-icon [icon]="faGamepad"></fa-icon></span>
+        <div class="ugs-brand-text">
+          <h3>{{ t('title') }}</h3>
+          <p>{{ t('subtitle') }}</p>
+        </div>
+      </div>
+
+      <span class="ugs-live">
+        <span class="ugs-live-dot" aria-hidden="true"></span>
+        {{ t('online') }}
+      </span>
+    </div>
+
+    <nav class="ugs-tabs" [attr.aria-label]="t('pagesNav')">
+      @for (r of routes; track r.id) {
+        <button
+          type="button"
+          class="ugs-tab"
+          [class.active]="activePath === r.path"
+          [attr.aria-pressed]="activePath === r.path"
+          (click)="selectRoute(r.path)">
+          <span class="ugs-tab-title">{{ t(r.label) }}</span>
+          <span class="ugs-tab-badge">{{ t(r.badge) }}</span>
+        </button>
+      }
+    </nav>
+  </header>
+
+  <!-- Janela de navegador com o site ao vivo -->
+  <div class="ugs-browser">
+    <div class="ugs-bar">
+      <div class="ugs-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+
+      <div class="ugs-address">
+        <fa-icon [icon]="faLock" class="ugs-lock" aria-hidden="true"></fa-icon>
+        <span class="ugs-address-text">{{ displayUrl }}</span>
+      </div>
+
+      <div class="ugs-actions">
+        <button
+          type="button"
+          class="ugs-action"
+          (click)="reloadIframe()"
+          [attr.aria-label]="t('reload')"
+          [title]="t('reload')">
+          <fa-icon [icon]="faSync" [class.ugs-spin]="status() === 'loading'"></fa-icon>
+        </button>
+        <button
+          type="button"
+          class="ugs-action ugs-action-open"
+          (click)="openInNewTab()"
+          [attr.aria-label]="t('openNewTab')"
+          [title]="t('openNewTab')">
+          <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+          <span>{{ t('open') }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="ugs-viewport" [attr.data-status]="status()">
+      <!-- Imagem real ao fundo: aparece durante o carregamento e no fallback -->
+      <img class="ugs-poster" [src]="posterImage" [alt]="t('fallbackAlt')" loading="lazy" decoding="async">
+
+      @if (sanitizedUrl(); as url) {
+        <iframe
+          [src]="url"
+          class="ugs-iframe"
+          [class.is-ready]="status() === 'ready'"
+          [title]="t('iframeTitle', { pagina: t(activeRoute().label) })"
+          allow="accelerometer; autoplay; camera; gyroscope; fullscreen; xr-spatial-tracking"
+          referrerpolicy="strict-origin-when-cross-origin"
+          (load)="onFrameLoad()">
+        </iframe>
+      }
+
+      <div class="ugs-overlay ugs-loading" [class.is-visible]="status() === 'loading' || status() === 'idle'" role="status">
+        <span class="ugs-spinner" aria-hidden="true"></span>
+        <p>{{ t('loading', { pagina: t(activeRoute().label) }) }}</p>
+      </div>
+
+      <div class="ugs-overlay ugs-fallback" [class.is-visible]="status() === 'failed'" [attr.aria-hidden]="status() !== 'failed'">
+        <div class="ugs-fallback-card">
+          <h4>{{ t('fallbackTitle') }}</h4>
+          <p>{{ t('fallbackText') }}</p>
+          <div class="ugs-fallback-actions">
+            <a
+              class="ugs-btn ugs-btn-primary"
+              [href]="currentFullUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              [attr.tabindex]="status() === 'failed' ? 0 : -1">
+              <fa-icon [icon]="faArrowUpRight"></fa-icon>
+              {{ t('openSite') }}
+            </a>
+            <button
+              type="button"
+              class="ugs-btn ugs-btn-ghost"
+              (click)="reloadIframe()"
+              [attr.tabindex]="status() === 'failed' ? 0 : -1">
+              <fa-icon [icon]="faSync"></fa-icon>
+              {{ t('retry') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="ugs-footer">
+      <span class="ugs-tip">
+        <fa-icon [icon]="faLightbulb" class="ugs-tip-icon" aria-hidden="true"></fa-icon>
+        <span><strong>{{ t('tipLabel') }}{{ i18n.lang() === 'fr' ? ' :' : ':' }}</strong> {{ t('tip') }}</span>
+      </span>
+      <a [href]="currentFullUrl" target="_blank" rel="noopener noreferrer" class="ugs-link">
+        {{ t('visit', { url: displayUrl }) }}
+        <fa-icon [icon]="faArrowUpRight" aria-hidden="true"></fa-icon>
+      </a>
+    </footer>
+  </div>
+
+  <!-- Totens em destaque -->
+  <section class="ugs-catalog">
+    <div class="ugs-section-head">
+      <fa-icon [icon]="faTv" class="ugs-section-icon" aria-hidden="true"></fa-icon>
+      <div>
+        <h4>{{ t('catalogTitle') }}</h4>
+        <p>{{ t('catalogSubtitle') }}</p>
+      </div>
+    </div>
+
+    <div class="ugs-grid">
+      @for (item of totemHighlights; track item.id) {
+        <article class="totem-card">
+          <div class="totem-thumb" [class.totem-thumb-icon]="!item.image">
+            @if (item.image && item.alt) {
+              <img [src]="item.image" [alt]="t(item.alt)" [style.object-position]="item.focus || null" loading="lazy" decoding="async">
+            } @else {
+              <fa-icon [icon]="faGamepad" aria-hidden="true"></fa-icon>
+            }
+          </div>
+          <div class="totem-info">
+            <h5>{{ t(item.name) }}</h5>
+            <p class="totem-specs">{{ t(item.specs) }}</p>
+            <div class="totem-pricing">
+              <span class="price-val">{{ t('sale') }}{{ i18n.lang() === 'fr' ? ' :' : ':' }} {{ money(item.price) }}</span>
+              <span class="rent-val">
+                {{ t('rent') }}{{ i18n.lang() === 'fr' ? ' :' : ':' }}
+                {{ t('installments', { n: item.rentInstallments, valor: money(item.rentValue) }) }}
+              </span>
+            </div>
+          </div>
+          <div class="totem-actions">
+            <button type="button" class="btn-order" (click)="posModal.abrirPedido(item.id)">
+              <fa-icon [icon]="faShoppingCart" aria-hidden="true"></fa-icon>
+              <span>{{ t('buy') }}</span>
+            </button>
+            <button type="button" class="btn-tech" (click)="posModal.abrirDetalhe(item.id)">
+              <fa-icon [icon]="faInfoCircle" aria-hidden="true"></fa-icon>
+              <span>{{ t('specs') }}</span>
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+</div>

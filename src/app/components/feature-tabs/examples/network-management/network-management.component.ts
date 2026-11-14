@@ -1,298 +1,341 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy,
+  computed, inject, signal, viewChild, viewChildren,
+} from '@angular/core';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { 
-  faServer, faNetworkWired, faWifi, faDesktop, faLaptop, faMobileAlt, 
-  faShieldAlt, faGlobe, faExchangeAlt, faExclamationTriangle, faCheckCircle 
+import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import {
+  faCircleInfo, faDatabase, faDesktop, faGlobe, faHardDrive, faLaptop, faMobileScreen, faNetworkWired,
+  faPlugCircleXmark, faRotate, faServer, faShieldHalved, faShuffle, faTowerCell, faTriangleExclamation, faWifi,
 } from '@fortawesome/free-solid-svg-icons';
+import { I18nService, Params } from '../../../../i18n/i18n.service';
+import { Polyline, Pt, SimLoop, clamp, ease, rng, smoothstep } from '../infra-shared/sim-loop';
+import { I18N } from './network-management.i18n';
 
-interface NetworkNode {
+type Key = keyof (typeof I18N)['pt'];
+type UplinkState = 'normal' | 'failover' | 'recovering';
+type NodeStatus = 'online' | 'offline' | 'recovering' | 'standby' | 'active';
+type Traffic = 'http' | 'db' | 'stream' | 'voip';
+
+interface NodeDef {
   id: string;
-  name: string;
-  type: 'internet' | 'firewall' | 'core' | 'dist' | 'access' | 'server' | 'client' | 'wifi';
-  status: 'online' | 'warning' | 'offline';
-  load: number; // 0-100%
-  x: number; // Percentage
-  y: number; // Percentage
-  icon: any;
+  label: Key;
+  role: Key;
+  icon: IconDefinition;
+  x: number;
+  y: number;
   ip: string;
+  /** Carga média, em %. */
+  base: number;
+  /** Equipamentos de núcleo ganham um pulso discreto. */
+  core?: boolean;
 }
 
-interface NetworkLink {
-  id: string;
-  sourceId: string;
-  targetId: string;
-  load: number; // 0-100%
-  active: boolean;
-}
-
-interface DataPacket {
+interface PacketDef {
   id: number;
-  path: string[]; // Array of Node IDs
-  currentStep: number; // Index in path
-  progress: number; // 0-100% between current and next step
   color: string;
-  type: 'http' | 'db' | 'stream' | 'voip';
+  path: Polyline;
+  period: number;
+  phase: number;
+  /** Rota pela operadora A, pela B, ou tráfego interno (`null`). */
+  via: 'a' | 'b' | null;
 }
+
+interface LogEvent {
+  id: number;
+  time: Date;
+  key: Key;
+  level: 'info' | 'warn' | 'ok';
+  n?: number;
+  ip?: string;
+}
+
+/** Altura do mapa em unidades do viewBox (a largura é 100). */
+const H = 132;
+
+const NODES: readonly NodeDef[] = [
+  { id: 'ispA', label: 'nIspA', role: 'rIspA', icon: faGlobe, x: 31, y: 8, ip: '203.0.113.1', base: 46, core: true },
+  { id: 'ispB', label: 'nIspB', role: 'rIspB', icon: faTowerCell, x: 69, y: 8, ip: '198.51.100.1', base: 4, core: true },
+  { id: 'fw', label: 'nFw', role: 'rFw', icon: faShieldHalved, x: 50, y: 27, ip: '10.0.0.1', base: 34, core: true },
+  { id: 'core', label: 'nCore', role: 'rCore', icon: faShuffle, x: 50, y: 46, ip: '10.0.0.2', base: 28, core: true },
+  { id: 'dsrv', label: 'nDsrv', role: 'rDsrv', icon: faNetworkWired, x: 26, y: 63, ip: '10.0.10.1', base: 22 },
+  { id: 'doff', label: 'nDoff', role: 'rDoff', icon: faNetworkWired, x: 74, y: 63, ip: '10.0.20.1', base: 38 },
+  { id: 'db', label: 'nDb', role: 'rDb', icon: faDatabase, x: 11, y: 84, ip: '10.0.10.10', base: 58 },
+  { id: 'app', label: 'nApp', role: 'rApp', icon: faServer, x: 26, y: 99, ip: '10.0.10.11', base: 44 },
+  { id: 'bkp', label: 'nBkp', role: 'rBkp', icon: faHardDrive, x: 40, y: 84, ip: '10.0.10.12', base: 12 },
+  { id: 'acc', label: 'nAcc', role: 'rAcc', icon: faNetworkWired, x: 61, y: 84, ip: '10.0.20.2', base: 31 },
+  { id: 'wifi', label: 'nWifi', role: 'rWifi', icon: faWifi, x: 87, y: 84, ip: '10.0.30.1', base: 52 },
+  { id: 'pc1', label: 'nPc1', role: 'rPc', icon: faDesktop, x: 52, y: 105, ip: '10.0.20.101', base: 18 },
+  { id: 'pc2', label: 'nPc2', role: 'rPc', icon: faDesktop, x: 65, y: 119, ip: '10.0.20.102', base: 14 },
+  { id: 'nb', label: 'nNb', role: 'rNb', icon: faLaptop, x: 77, y: 105, ip: '10.0.30.50', base: 27 },
+  { id: 'cel', label: 'nCel', role: 'rCel', icon: faMobileScreen, x: 92, y: 119, ip: '10.0.30.51', base: 9 },
+];
+
+const LINKS: readonly (readonly [string, string])[] = [
+  ['ispA', 'fw'], ['ispB', 'fw'], ['fw', 'core'], ['core', 'dsrv'], ['core', 'doff'],
+  ['dsrv', 'db'], ['dsrv', 'app'], ['dsrv', 'bkp'], ['doff', 'acc'], ['doff', 'wifi'],
+  ['acc', 'pc1'], ['acc', 'pc2'], ['wifi', 'nb'], ['wifi', 'cel'],
+];
+
+const COLORS: Record<Traffic, string> = { http: '#f99126', db: '#0ea5a4', stream: '#3b82f6', voip: '#22c55e' };
+
+/** Fluxos de tráfego. `inet` vira duas rotas (operadora A e B) que se alternam no failover. */
+const FLOWS: readonly { from: string; to: string; type: Traffic; period: number; phase: number }[] = [
+  { from: 'pc1', to: 'db', type: 'db', period: 5.2, phase: 0.1 },
+  { from: 'pc2', to: 'app', type: 'http', period: 6.1, phase: 0.55 },
+  { from: 'nb', to: 'app', type: 'http', period: 7.3, phase: 0.8 },
+  { from: 'app', to: 'bkp', type: 'db', period: 4.3, phase: 0.3 },
+  { from: 'db', to: 'pc2', type: 'db', period: 6.7, phase: 0.05 },
+  { from: 'nb', to: 'inet', type: 'http', period: 5.7, phase: 0.25 },
+  { from: 'cel', to: 'inet', type: 'stream', period: 4.9, phase: 0.6 },
+  { from: 'pc1', to: 'inet', type: 'voip', period: 6.4, phase: 0.9 },
+  { from: 'inet', to: 'cel', type: 'stream', period: 5.3, phase: 0.4 },
+  { from: 'inet', to: 'pc2', type: 'http', period: 7.9, phase: 0.7 },
+  { from: 'inet', to: 'app', type: 'http', period: 6.9, phase: 0.15 },
+];
 
 @Component({
   selector: 'app-network-management',
   standalone: true,
-  imports: [CommonModule, FontAwesomeModule],
+  imports: [FontAwesomeModule],
   templateUrl: './network-management.component.html',
-  styleUrls: ['./network-management.component.scss']
+  styleUrls: ['./network-management.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class NetworkManagementComponent implements OnInit, OnDestroy {
-  // Icons
-  faServer = faServer;
-  faNetworkWired = faNetworkWired;
-  faWifi = faWifi;
-  faDesktop = faDesktop;
-  faLaptop = faLaptop;
-  faMobileAlt = faMobileAlt;
-  faShieldAlt = faShieldAlt;
-  faGlobe = faGlobe;
-  faExchangeAlt = faExchangeAlt;
-  faExclamationTriangle = faExclamationTriangle;
-  faCheckCircle = faCheckCircle;
+export class NetworkManagementComponent implements AfterViewInit, OnDestroy {
+  readonly i18n = inject(I18nService);
+  readonly t = this.i18n.scope(I18N);
+  private readonly zone = inject(NgZone);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+  private readonly packetEls = viewChildren<ElementRef<SVGCircleElement>>('pkt');
+  private readonly fwRing = viewChild<ElementRef<HTMLElement>>('fwRing');
 
-  nodes: NetworkNode[] = [];
-  links: NetworkLink[] = [];
-  packets: DataPacket[] = [];
-  
-  // Stats
-  totalBandwidth = 0; // Gbps
-  activeConnections = 0;
-  avgLatency = 0; // ms
-  threatsBlocked = 0;
+  readonly icons = {
+    net: faNetworkWired, info: faCircleInfo, warn: faTriangleExclamation, cut: faPlugCircleXmark, restore: faRotate,
+  };
+  readonly H = H;
+  readonly nodes = NODES;
+  readonly links = LINKS.map(([a, b]) => ({ id: `${a}-${b}`, a: this.node(a), b: this.node(b) }));
+  readonly legend: readonly { key: Key; color: string }[] = [
+    { key: 'lHttp', color: COLORS.http },
+    { key: 'lDb', color: COLORS.db },
+    { key: 'lStream', color: COLORS.stream },
+    { key: 'lVoip', color: COLORS.voip },
+  ];
+  readonly packets: readonly PacketDef[] = this.buildPackets();
 
-  private simulationInterval: any;
-  private animationFrameId: any;
+  readonly uplink = signal<UplinkState>('normal');
+  readonly bandwidth = signal(2.4);
+  readonly latency = signal(14);
+  readonly threats = signal(37);
+  readonly selectedId = signal('fw');
+  readonly selected = computed(() => this.node(this.selectedId()));
+  readonly selectedLoad = signal(34);
+  readonly log = signal<LogEvent[]>([{ id: 0, time: new Date(), key: 'evStart', level: 'info', n: NODES.length }]);
+  readonly statusKey = computed<Key>(() =>
+    this.uplink() === 'normal' ? 'statusNormal' : this.uplink() === 'failover' ? 'statusFailover' : 'statusRecovering',
+  );
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  private readonly rand = rng(77);
+  private loop?: SimLoop;
+  private state: UplinkState = 'normal';
+  /** 1 = tráfego pela operadora A; 0 = pela B. Varia de forma contínua na comutação. */
+  private up = 1;
+  private nextFailAt = 13;
+  private failUntil = 0;
+  private recoverUntil = 0;
+  private nextThreatAt = 6;
+  private logId = 0;
+  private publishAcc = 0;
+  private readonly pt: Pt = { x: 0, y: 0 };
 
-  ngOnInit() {
-    this.initializeNetwork();
-    this.startSimulation();
+  ngAfterViewInit(): void {
+    this.loop = new SimLoop(this.host.nativeElement, this.zone, (t, dt) => this.frame(t, dt), 8);
+    this.loop.start();
   }
 
-  ngOnDestroy() {
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
-    if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+  ngOnDestroy(): void {
+    this.loop?.destroy();
   }
 
-  initializeNetwork() {
-    // 1. Internet & Core
-    this.nodes.push(
-      { id: 'internet', name: 'ISP Uplink', type: 'internet', status: 'online', load: 45, x: 50, y: 5, icon: faGlobe, ip: '203.0.113.1' },
-      { id: 'firewall', name: 'NG Firewall', type: 'firewall', status: 'online', load: 30, x: 50, y: 15, icon: faShieldAlt, ip: '192.168.1.1' },
-      { id: 'core-sw', name: 'Core Switch L3', type: 'core', status: 'online', load: 25, x: 50, y: 25, icon: faExchangeAlt, ip: '192.168.1.2' }
-    );
-
-    // 2. Distribution Layer (Left: Servers, Right: Clients)
-    this.nodes.push(
-      { id: 'dist-sw-1', name: 'Dist. Server Farm', type: 'dist', status: 'online', load: 15, x: 30, y: 40, icon: faNetworkWired, ip: '192.168.10.1' },
-      { id: 'dist-sw-2', name: 'Dist. Office LAN', type: 'dist', status: 'online', load: 40, x: 70, y: 40, icon: faNetworkWired, ip: '192.168.20.1' }
-    );
-
-    // 3. Access Layer & Devices
-    // Server Farm Side
-    this.nodes.push(
-      { id: 'srv-db', name: 'Database Cluster', type: 'server', status: 'online', load: 60, x: 15, y: 60, icon: faServer, ip: '192.168.10.10' },
-      { id: 'srv-app', name: 'App Servers', type: 'server', status: 'online', load: 45, x: 30, y: 60, icon: faServer, ip: '192.168.10.11' },
-      { id: 'srv-backup', name: 'Backup NAS', type: 'server', status: 'online', load: 10, x: 45, y: 60, icon: faServer, ip: '192.168.10.12' }
-    );
-
-    // Office Side
-    this.nodes.push(
-      { id: 'acc-sw-1', name: 'Access SW Floor 1', type: 'access', status: 'online', load: 35, x: 60, y: 55, icon: faNetworkWired, ip: '192.168.20.2' },
-      { id: 'wifi-ap', name: 'Wi-Fi Controller', type: 'wifi', status: 'online', load: 55, x: 80, y: 55, icon: faWifi, ip: '192.168.30.1' }
-    );
-
-    // End Users
-    this.nodes.push(
-      { id: 'pc-1', name: 'Workstation 01', type: 'client', status: 'online', load: 20, x: 55, y: 75, icon: faDesktop, ip: '192.168.20.101' },
-      { id: 'pc-2', name: 'Workstation 02', type: 'client', status: 'online', load: 15, x: 65, y: 75, icon: faDesktop, ip: '192.168.20.102' },
-      { id: 'laptop-1', name: 'Laptop User', type: 'client', status: 'online', load: 30, x: 75, y: 75, icon: faLaptop, ip: '192.168.30.50' },
-      { id: 'mobile-1', name: 'Mobile Device', type: 'client', status: 'online', load: 10, x: 85, y: 75, icon: faMobileAlt, ip: '192.168.30.51' }
-    );
-
-    // Links
-    this.createLink('internet', 'firewall');
-    this.createLink('firewall', 'core-sw');
-    this.createLink('core-sw', 'dist-sw-1');
-    this.createLink('core-sw', 'dist-sw-2');
-    
-    this.createLink('dist-sw-1', 'srv-db');
-    this.createLink('dist-sw-1', 'srv-app');
-    this.createLink('dist-sw-1', 'srv-backup');
-
-    this.createLink('dist-sw-2', 'acc-sw-1');
-    this.createLink('dist-sw-2', 'wifi-ap');
-
-    this.createLink('acc-sw-1', 'pc-1');
-    this.createLink('acc-sw-1', 'pc-2');
-    this.createLink('wifi-ap', 'laptop-1');
-    this.createLink('wifi-ap', 'mobile-1');
+  // --- Interação ---
+  select(id: string): void {
+    this.selectedId.set(id);
+    this.selectedLoad.set(Math.round(this.loadOf(id, this.loop?.now() ?? 0)));
   }
 
-  createLink(sourceId: string, targetId: string) {
-    this.links.push({
-      id: `${sourceId}-${targetId}`,
-      sourceId,
-      targetId,
-      load: 0,
-      active: false
-    });
+  toggleUplink(): void {
+    const t = this.loop?.now() ?? 0;
+    if (this.state === 'normal') {
+      this.fail(t);
+      // Falha pedida pelo usuário dura mais; se ele sair, a demo se recupera sozinha.
+      this.failUntil = t + 25;
+    } else if (this.state === 'failover') {
+      this.recover(t);
+      this.nextFailAt = t + 45;
+    }
   }
 
-  startSimulation() {
-    // Logic Loop (Traffic Generation & Stats)
-    this.simulationInterval = setInterval(() => {
-      this.generateTraffic();
-      this.updateStats();
-    }, 500);
+  // --- Apresentação ---
+  top(y: number): number {
+    return (y / H) * 100;
+  }
 
-    // Animation Loop (Packet Movement)
-    const animate = () => {
-      this.updatePackets();
-      this.animationFrameId = requestAnimationFrame(animate);
+  status(id: string): NodeStatus {
+    const u = this.uplink();
+    if (id === 'ispA') return u === 'normal' ? 'online' : u === 'failover' ? 'offline' : 'recovering';
+    if (id === 'ispB') return u === 'normal' ? 'standby' : 'active';
+    return 'online';
+  }
+
+  statusLabel(id: string): Key {
+    const map: Record<NodeStatus, Key> = {
+      online: 'stOnline', offline: 'stOffline', recovering: 'stRecovering', standby: 'stStandby', active: 'stActive',
     };
-    animate();
+    return map[this.status(id)];
   }
 
-  generateTraffic() {
-    // Randomly create packets from clients to servers or internet
-    const clients = this.nodes.filter(n => n.type === 'client');
-    const servers = this.nodes.filter(n => n.type === 'server');
-    const internet = this.nodes.find(n => n.type === 'internet');
+  eventText(e: LogEvent): string {
+    const params: Params = {};
+    if (e.n !== undefined) {
+      params['n'] = this.i18n.number(e.n);
+      params['ms'] = this.i18n.number(e.n);
+    }
+    if (e.ip) params['ip'] = e.ip;
+    return this.t(e.key, params);
+  }
 
-    if (Math.random() > 0.3) { // 70% chance
-      const source = clients[Math.floor(Math.random() * clients.length)];
-      const isInternetBound = Math.random() > 0.6;
-      const target = isInternetBound ? internet : servers[Math.floor(Math.random() * servers.length)];
+  eventTime(e: LogEvent): string {
+    return this.i18n.date(e.time, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  }
 
-      if (source && target) {
-        const path = this.calculatePath(source.id, target.id);
-        if (path.length > 0) {
-          const types: DataPacket['type'][] = ['http', 'db', 'stream', 'voip'];
-          const type = types[Math.floor(Math.random() * types.length)];
-          
-          let color = '#60a5fa'; // Blue (HTTP)
-          if (type === 'db') color = '#facc15'; // Yellow
-          if (type === 'stream') color = '#a78bfa'; // Purple
-          if (type === 'voip') color = '#4ade80'; // Green
+  num(v: number, digits = 0): string {
+    return this.i18n.number(v, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
 
-          this.packets.push({
-            id: Date.now() + Math.random(),
-            path: path,
-            currentStep: 0,
-            progress: 0,
-            color: color,
-            type: type
-          });
+  pct(v: number): string {
+    return this.i18n.number(v / 100, { style: 'percent', maximumFractionDigits: 0 });
+  }
+
+  // --- Simulação (fora da NgZone) ---
+  private frame(t: number, dt: number): void {
+    if (this.state === 'normal' && t >= this.nextFailAt) {
+      this.fail(t);
+      this.failUntil = t + 8;
+    } else if (this.state === 'failover' && t >= this.failUntil) {
+      this.recover(t);
+    } else if (this.state === 'recovering' && t >= this.recoverUntil) {
+      this.state = 'normal';
+      this.nextFailAt = Math.max(this.nextFailAt, t + 24);
+      this.uplink.set('normal');
+      this.addEvent('evRestored', 'ok');
+    }
+
+    if (t >= this.nextThreatAt) {
+      this.nextThreatAt = t + 9 + this.rand() * 8;
+      this.threats.update((n) => n + 1);
+      this.addEvent('evThreat', 'warn', undefined, `203.0.113.${20 + Math.floor(this.rand() * 200)}`);
+      // Pulso no firewall sem recriar o nó (a animação é disparada pela Web Animations API).
+      this.fwRing()?.nativeElement.animate?.(
+        [{ transform: 'scale(1)', opacity: 0.7 }, { transform: 'scale(2.3)', opacity: 0 }],
+        { duration: 900, easing: 'ease-out' },
+      );
+    }
+
+    // A comutação entre operadoras é um crossfade: pacotes de uma rota somem enquanto os da outra surgem.
+    this.up = ease(this.up, this.state === 'normal' ? 1 : 0, dt, 0.45);
+
+    const els = this.packetEls();
+    for (let i = 0; i < this.packets.length; i++) {
+      const p = this.packets[i];
+      const el = els[i]?.nativeElement;
+      if (!el) continue;
+      const f = (t / p.period + p.phase) % 1;
+      const weight = p.via === 'a' ? this.up : p.via === 'b' ? 1 - this.up : 1;
+      // O pacote surge na origem e some no destino: a volta do ciclo não tem salto visível.
+      const alpha = smoothstep(0, 0.07, f) * (1 - smoothstep(0.93, 1, f)) * weight;
+      p.path.at(f, this.pt);
+      el.setAttribute('cx', this.pt.x.toFixed(2));
+      el.setAttribute('cy', this.pt.y.toFixed(2));
+      el.setAttribute('opacity', alpha.toFixed(2));
+    }
+
+    this.publishAcc += dt;
+    if (this.publishAcc >= 0.25) {
+      this.publishAcc = 0;
+      const backup = 1 - this.up;
+      this.bandwidth.set((2.4 + 0.5 * Math.sin(t * 0.21) + 0.2 * Math.sin(t * 0.67)) * (1 - 0.35 * backup));
+      this.latency.set(14 + 2 * Math.sin(t * 0.4) + Math.sin(t * 1.1) + 21 * backup);
+      this.selectedLoad.set(Math.round(this.loadOf(this.selectedId(), t)));
+    }
+  }
+
+  private fail(t: number): void {
+    this.state = 'failover';
+    this.failUntil = t + 8;
+    this.uplink.set('failover');
+    this.addEvent('evFail', 'warn', 700 + Math.round(this.rand() * 40) * 10);
+  }
+
+  private recover(t: number): void {
+    this.state = 'recovering';
+    this.recoverUntil = t + 3;
+    this.uplink.set('recovering');
+    this.addEvent('evRecovering', 'info');
+  }
+
+  private loadOf(id: string, t: number): number {
+    const i = NODES.findIndex((n) => n.id === id);
+    const wave = 7 * Math.sin(t * 0.31 + i * 1.7) + 3 * Math.sin(t * 0.83 + i);
+    if (id === 'ispA') return clamp((NODES[i].base + wave) * this.up, 0, 100);
+    if (id === 'ispB') return clamp(4 + (68 + wave) * (1 - this.up), 0, 100);
+    return clamp(NODES[i].base + wave, 2, 100);
+  }
+
+  private addEvent(key: Key, level: LogEvent['level'], n?: number, ip?: string): void {
+    const next = [{ id: ++this.logId, time: new Date(), key, level, n, ip }, ...this.log()];
+    this.log.set(next.slice(0, 4));
+  }
+
+  private node(id: string): NodeDef {
+    return NODES.find((n) => n.id === id)!;
+  }
+
+  private buildPackets(): PacketDef[] {
+    const out: PacketDef[] = [];
+    let id = 0;
+    for (const flow of FLOWS) {
+      const viaInternet = flow.from === 'inet' || flow.to === 'inet';
+      for (const via of viaInternet ? (['a', 'b'] as const) : [null]) {
+        const isp = via === 'b' ? 'ispB' : 'ispA';
+        const from = flow.from === 'inet' ? isp : flow.from;
+        const to = flow.to === 'inet' ? isp : flow.to;
+        const pts = this.route(from, to).map((nodeId) => {
+          const n = this.node(nodeId);
+          return { x: n.x, y: n.y };
+        });
+        out.push({ id: id++, color: COLORS[flow.type], path: new Polyline(pts), period: flow.period, phase: flow.phase, via });
+      }
+    }
+    return out;
+  }
+
+  /** Busca em largura; a rede é uma árvore, então o caminho é único. */
+  private route(from: string, to: string): string[] {
+    const queue: string[][] = [[from]];
+    const seen = new Set([from]);
+    while (queue.length) {
+      const path = queue.shift()!;
+      const last = path[path.length - 1];
+      if (last === to) return path;
+      for (const [a, b] of LINKS) {
+        const next = a === last ? b : b === last ? a : null;
+        if (next && !seen.has(next)) {
+          seen.add(next);
+          queue.push([...path, next]);
         }
       }
     }
-  }
-
-  calculatePath(startId: string, endId: string): string[] {
-    // Simple tree traversal logic since our topology is a tree
-    // Find path up to common ancestor then down
-    // For this specific topology, we can hardcode or use a simple search
-    // Since it's a tree, there's only one path.
-    
-    // Simplified: Just go up to Core then down? 
-    // Or just use a pre-defined map for this demo.
-    
-    // Let's do a simple BFS for robustness
-    const queue: {id: string, path: string[]}[] = [{id: startId, path: [startId]}];
-    const visited = new Set<string>();
-    
-    while (queue.length > 0) {
-      const {id, path} = queue.shift()!;
-      if (id === endId) return path;
-      
-      visited.add(id);
-      
-      // Find neighbors
-      const neighbors = this.links
-        .filter(l => l.sourceId === id || l.targetId === id)
-        .map(l => l.sourceId === id ? l.targetId : l.sourceId);
-        
-      for (const neighbor of neighbors) {
-        if (!visited.has(neighbor)) {
-          queue.push({id: neighbor, path: [...path, neighbor]});
-        }
-      }
-    }
-    return [];
-  }
-
-  updatePackets() {
-    const speed = 2; // % per frame
-    
-    for (let i = this.packets.length - 1; i >= 0; i--) {
-      const packet = this.packets[i];
-      packet.progress += speed;
-
-      if (packet.progress >= 100) {
-        packet.progress = 0;
-        packet.currentStep++;
-        
-        // Pulse the node we just arrived at
-        const currentNodeId = packet.path[packet.currentStep];
-        const node = this.nodes.find(n => n.id === currentNodeId);
-        if (node) {
-          node.load = Math.min(100, node.load + 5);
-          setTimeout(() => node.load = Math.max(0, node.load - 5), 500);
-        }
-
-        // Pulse the link we just traversed
-        if (packet.currentStep > 0) {
-            const prevNodeId = packet.path[packet.currentStep - 1];
-            const link = this.links.find(l => 
-                (l.sourceId === prevNodeId && l.targetId === currentNodeId) || 
-                (l.sourceId === currentNodeId && l.targetId === prevNodeId)
-            );
-            if (link) {
-                link.load = Math.min(100, link.load + 10);
-                link.active = true;
-                setTimeout(() => {
-                    link.load = Math.max(0, link.load - 10);
-                    link.active = false;
-                }, 300);
-            }
-        }
-
-        if (packet.currentStep >= packet.path.length - 1) {
-          // Arrived at destination
-          this.packets.splice(i, 1);
-          this.activeConnections++;
-          this.totalBandwidth += Math.random() * 0.5;
-        }
-      }
-    }
-    this.cdr.detectChanges();
-  }
-
-  updateStats() {
-    // Decay stats
-    this.totalBandwidth = Math.max(0, this.totalBandwidth * 0.95);
-    this.avgLatency = 15 + (this.totalBandwidth * 2) + (Math.random() * 5);
-    
-    // Random threat simulation
-    if (Math.random() > 0.95) {
-        this.threatsBlocked++;
-        const firewall = this.nodes.find(n => n.id === 'firewall');
-        if (firewall) {
-            firewall.status = 'warning';
-            setTimeout(() => firewall.status = 'online', 1000);
-        }
-    }
-  }
-
-  getNodeById(id: string): NetworkNode | undefined {
-    return this.nodes.find(n => n.id === id);
+    return [from];
   }
 }

@@ -1,145 +1,92 @@
-<div class="w-full bg-white rounded-xl overflow-hidden border border-slate-200 shadow-lg flex flex-col md:flex-row font-sans">
-  
-  <!-- Sidebar: Categories -->
-  <div class="w-full md:w-64 bg-gray-50 border-b md:border-b-0 md:border-r border-slate-200 flex flex-col">
-    <div class="p-6 border-b border-slate-200">
-      <h3 class="text-slate-800 font-bold text-lg flex items-center gap-2">
-        <fa-icon [icon]="faMicrochip" class="text-unrender-purple"></fa-icon>
-        Hardware Lab
-      </h3>
-      <p class="text-xs text-slate-500 mt-1">Comparativo de Arquiteturas</p>
-    </div>
+<div class="hs" [class.is-auto]="auto()" (pointerdown)="onTouch()">
+  <div class="hs-grid">
 
-    <div class="flex-1 p-4 space-y-2">
-      <button *ngFor="let cat of categories"
-              (click)="selectCategory(cat.id)"
-              class="w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3 group"
-              [ngClass]="selectedCategory === cat.id ? 'bg-unrender-purple text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'">
-        <fa-icon [icon]="cat.icon" [class.text-indigo-200]="selectedCategory === cat.id" [class.text-slate-400]="selectedCategory !== cat.id"></fa-icon>
-        <span class="font-medium text-sm">{{ cat.label }}</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Main Content -->
-  <div class="flex-1 flex flex-col">
-    
-    <!-- Item Grid (Top) -->
-    <div class="bg-white p-6 border-b border-slate-200">
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        <div *ngFor="let item of filteredItems"
-             (click)="selectedItem = item"
-             class="h-40 bg-white rounded-xl border p-4 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-3 group hover:-translate-y-1 shadow-sm"
-             [ngClass]="selectedItem?.id === item.id ? 'border-unrender-purple shadow-lg shadow-indigo-500/20 bg-white' : 'border-slate-200 hover:border-slate-300'">
-          
-          <div class="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-3xl transition-colors"
-               [ngClass]="selectedItem?.id === item.id ? 'text-unrender-purple' : 'text-slate-400 group-hover:text-slate-600'">
-            <fa-icon [icon]="item.icon"></fa-icon>
-          </div>
-          
-          <div class="text-center">
-            <div class="font-bold text-sm text-slate-800">{{ item.name }}</div>
-            <div class="text-xs text-slate-500 mt-1">{{ item.type }}</div>
-          </div>
-        </div>
+    <!-- Categorias -->
+    <nav class="hs-side" [attr.aria-label]="t('categories')">
+      <div class="hs-brand">
+        <h3>
+          <fa-icon [icon]="faMicrochip"></fa-icon>
+          <span>{{ t('title') }}</span>
+        </h3>
+        <p>{{ t('subtitle') }}</p>
       </div>
-    </div>
+      <div class="hs-cats">
+        @for (cat of categories; track cat.id) {
+          <button type="button" [class.is-on]="selectedCategory() === cat.id"
+            [attr.aria-pressed]="selectedCategory() === cat.id" (click)="selectCategory(cat.id)">
+            <fa-icon [icon]="cat.icon"></fa-icon>
+            <span>{{ t(cat.label) }}</span>
+          </button>
+        }
+      </div>
+    </nav>
 
-    <!-- Detail View (Bottom) -->
-    <div class="bg-slate-50/50 p-8" *ngIf="selectedItem">
-      <div class="flex flex-col lg:flex-row gap-8">
-        
-        <!-- Info & Specs -->
-        <div class="flex-1 space-y-6">
-          <div>
-            <h2 class="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-              {{ selectedItem.name }}
-              <span class="px-3 py-1 rounded-full bg-slate-200 text-xs font-normal text-slate-600 border border-slate-300">
-                {{ selectedItem.type }}
-              </span>
-            </h2>
-            <p class="text-slate-500 leading-relaxed">{{ selectedItem.description }}</p>
+    <div class="hs-main">
+      <!-- Grades empilhadas: a categoria ativa aparece por fade e a altura não muda -->
+      <div class="hs-stack hs-groups">
+        @for (group of groups; track group.id) {
+          <div class="hs-items" [class.is-on]="selectedCategory() === group.id"
+            [attr.inert]="selectedCategory() === group.id ? null : ''">
+            @for (item of group.items; track item.id) {
+              @let text = textOf(item.id);
+              <button type="button" class="hs-card" [class.is-on]="selectedId() === item.id"
+                [attr.aria-pressed]="selectedId() === item.id" (click)="select(item.id)">
+                <span class="hs-card-icon">
+                  <fa-icon [icon]="item.icon"></fa-icon>
+                  <i class="hs-orbit"></i>
+                </span>
+                <span class="hs-card-name">{{ text.name }}</span>
+                <span class="hs-card-type">{{ text.type }}</span>
+              </button>
+            }
           </div>
+        }
+      </div>
 
-          <div class="grid grid-cols-3 gap-4">
-            <div *ngFor="let spec of selectedItem.specs" class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-              <div class="text-slate-400 text-xs mb-1 flex items-center gap-2">
-                <fa-icon [icon]="spec.icon"></fa-icon> {{ spec.label }}
+      <div class="hs-detail">
+        <div class="hs-stack hs-infos">
+          @for (item of items; track item.id) {
+            @let text = textOf(item.id);
+            <article class="hs-info" [class.is-on]="selectedId() === item.id"
+              [attr.aria-hidden]="selectedId() !== item.id">
+              <h4>
+                <span>{{ text.name }}</span>
+                <span class="hs-badge">{{ text.type }}</span>
+              </h4>
+              <p>{{ text.description }}</p>
+              <ul class="hs-specs">
+                @for (spec of text.specs; track $index) {
+                  <li>
+                    <span><fa-icon [icon]="item.specIcons[$index]"></fa-icon> {{ spec[0] }}</span>
+                    <strong>{{ spec[1] }}</strong>
+                  </li>
+                }
+              </ul>
+              <h5>{{ t('highlights') }}</h5>
+              <ul class="hs-feats">
+                @for (feat of text.features; track $index) {
+                  <li>{{ feat }}</li>
+                }
+              </ul>
+            </article>
+          }
+        </div>
+
+        <!-- As barras são sempre as mesmas: deslizam de um valor ao outro -->
+        <section class="hs-metrics">
+          <h4>{{ t('metrics') }}</h4>
+          @for (m of metricDefs; track m.id) {
+            <div class="hs-metric" [attr.data-tone]="tone(selected().metrics[m.id], m.lowerIsBetter)">
+              <div class="hs-metric-head">
+                <span>{{ t(m.label) }}</span>
+                <strong>{{ round(shownMetrics()[m.id]) }}</strong>
               </div>
-              <div class="text-slate-800 font-mono text-sm font-semibold">{{ spec.value }}</div>
+              <div class="hs-bar"><i [style.transform]="'scaleX(' + selected().metrics[m.id] / 100 + ')'"></i></div>
             </div>
-          </div>
-
-          <div class="space-y-2">
-            <h4 class="text-sm font-semibold text-slate-600">Destaques</h4>
-            <div class="flex flex-wrap gap-2">
-              <span *ngFor="let feat of selectedItem.features" 
-                    class="px-3 py-1 rounded bg-indigo-50 text-unrender-purple text-xs border border-indigo-100">
-                {{ feat }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Metrics Bars -->
-        <div class="w-full lg:w-80 bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-6">
-          <h3 class="text-slate-800 font-bold mb-2">Análise de Métricas</h3>
-          
-          <!-- Performance -->
-          <div>
-            <div class="flex justify-between text-xs mb-1">
-              <span class="text-slate-500">Performance</span>
-              <span class="text-slate-800">{{ selectedItem.metrics.performance }}%</span>
-            </div>
-            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-1000 ease-out"
-                   [ngClass]="getMetricColor(selectedItem.metrics.performance, 'performance')"
-                   [style.width.%]="selectedItem.metrics.performance"></div>
-            </div>
-          </div>
-
-          <!-- Efficiency -->
-          <div>
-            <div class="flex justify-between text-xs mb-1">
-              <span class="text-slate-500">Eficiência Energética</span>
-              <span class="text-slate-800">{{ selectedItem.metrics.efficiency }}%</span>
-            </div>
-            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-1000 ease-out"
-                   [ngClass]="getMetricColor(selectedItem.metrics.efficiency, 'efficiency')"
-                   [style.width.%]="selectedItem.metrics.efficiency"></div>
-            </div>
-          </div>
-
-          <!-- Power Consumption -->
-          <div>
-            <div class="flex justify-between text-xs mb-1">
-              <span class="text-slate-500">Consumo de Energia</span>
-              <span class="text-slate-800">{{ selectedItem.metrics.power }}%</span>
-            </div>
-            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-1000 ease-out"
-                   [ngClass]="getMetricColor(selectedItem.metrics.power, 'power')"
-                   [style.width.%]="selectedItem.metrics.power"></div>
-            </div>
-          </div>
-
-          <!-- Cost -->
-          <div>
-            <div class="flex justify-between text-xs mb-1">
-              <span class="text-slate-500">Custo Estimado</span>
-              <span class="text-slate-800">{{ selectedItem.metrics.cost }}%</span>
-            </div>
-            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-1000 ease-out"
-                   [ngClass]="getMetricColor(selectedItem.metrics.cost, 'cost')"
-                   [style.width.%]="selectedItem.metrics.cost"></div>
-            </div>
-          </div>
-
-        </div>
+          }
+          <p class="hs-scale">{{ t('scale') }}</p>
+        </section>
       </div>
     </div>
-
   </div>
 </div>

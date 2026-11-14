@@ -1,170 +1,155 @@
-<div #rackContainer
-  class="w-full min-h-full bg-white p-2 sm:p-4 rounded-xl overflow-hidden relative flex flex-col items-center border border-slate-200 shadow-lg">
+<div class="rackdemo">
+  <header class="head">
+    <h3><fa-icon [icon]="icons.server"></fa-icon> {{ t('title') }}</h3>
+    <span class="tag">{{ t('badge') }}</span>
+  </header>
 
-  <!-- Background Grid/Decorations -->
-  <div class="absolute inset-0 opacity-30 pointer-events-none"
-    style="background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px;">
-  </div>
+  <div class="layout">
+    <!-- Rack físico: SVG com viewBox, escala com o contêiner mantendo a proporção -->
+    <svg class="rack" viewBox="0 0 320 452" role="group" [attr.aria-label]="t('rackAria')">
+      <rect class="frame" x="2" y="2" width="316" height="448" rx="10" />
+      <rect class="cavity" x="12" y="26" width="296" height="412" rx="4" />
+      <line class="holes" x1="17" y1="34" x2="17" y2="432" />
+      <line class="holes" x1="303" y1="34" x2="303" y2="432" />
+      <text class="plate" x="160" y="18" text-anchor="middle">RACK A-01 · 42U</text>
 
-  <!-- Network Switch (Top) -->
-  <div #switchElement
-    class="relative z-10 w-full max-w-xs sm:w-64 h-12 bg-white border border-slate-200 rounded-lg shadow-md flex items-center justify-between px-4 mb-8 shrink-0">
-    <div class="flex gap-1">
-      <div *ngFor="let i of [1,2,3,4,5,6,7,8]" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-300 animate-pulse"
-        [style.animation-delay]="i * 100 + 'ms'"></div>
-    </div>
-    <div class="text-[10px] sm:text-xs font-mono text-unrender-purple font-bold">CORE-SWITCH-01</div>
-  </div>
-
-  <!-- Connection Lines Layer (SVG) -->
-  <svg class="absolute inset-0 w-full h-full pointer-events-none z-0">
-    <!-- Static Lines -->
-    <g *ngFor="let server of servers; let sIdx = index">
-      <g *ngFor="let gpu of server.gpus; let gIdx = index">
-        <line *ngIf="gpu.x && gpu.y" [attr.x1]="switchPos.x + '%'" [attr.y1]="switchPos.y + '%'" [attr.x2]="gpu.x + '%'"
-          [attr.y2]="gpu.y + '%'" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 4" opacity="0.5" />
+      <!-- Switch de topo de rack -->
+      <g transform="translate(22 32)">
+        <rect class="unit" width="276" height="30" rx="3" />
+        <text class="silk" x="8" y="19">CORE-SW-01</text>
+        @for (p of ports; track p) {
+        <g [attr.transform]="'translate(' + (88 + p * 15.6) + ' 6)'">
+          <rect class="port" width="11.5" height="9" rx="1.2" />
+          <!-- Cada LED pisca com período e fase próprios; apaga com transição quando o nó cai -->
+          <g class="led-wrap" [class.dim]="p > 9 || (portServer(p) && portServer(p)!.state !== 'online')">
+            <circle class="led link" [class]="'led link blink-' + (p % 4)" cx="5.75" cy="15" r="1.9"
+              [style.animation-delay]="-(p * 0.37) + 's'" />
+          </g>
+        </g>
+        }
       </g>
-    </g>
 
-    <!-- Active Packets -->
-    <circle *ngFor="let packet of packets" r="3" fill="#818cf8" filter="url(#glow)">
-      <!-- Removed animateMotion for performance/complexity reasons in this context -->
-    </circle>
+      <!-- Servidores de IA -->
+      @for (s of servers(); track s.id) {
+      <g class="server" [class.selected]="selectedId() === s.id" [class.offline]="s.state === 'offline'"
+        [class.booting]="s.state === 'booting'" [attr.transform]="'translate(22 ' + (70 + s.index * 86) + ')'"
+        role="button" tabindex="0" [attr.aria-pressed]="selectedId() === s.id"
+        [attr.aria-label]="t('selectServer', { name: s.name }) + ' — ' + t(stateKey(s.state))"
+        (click)="select(s.id)" (keydown.enter)="onServerKey($event, s.id)" (keydown.space)="onServerKey($event, s.id)">
+        <rect class="sel" x="-4" y="-4" width="284" height="86" rx="7" />
+        <rect class="unit" width="276" height="78" rx="4" />
+        <text class="silk name" x="7" y="15">{{ s.name }}</text>
+        <circle class="led pwr" cx="10" cy="27" r="2.4" />
+        <g class="led-wrap" [class.dim]="s.state !== 'online'">
+          <circle [class]="'led io blink-' + ((s.index + 1) % 4)" cx="19" cy="27" r="2.4"
+            [style.animation-delay]="-(s.index * 0.53) + 's'" />
+        </g>
+        <text class="silk state" x="7" y="43">{{ t(stateKey(s.state)) }}</text>
+        <text class="silk watt" x="7" y="57">{{ num(s.power) }} W</text>
+        <line class="vent" x1="7" y1="65" x2="52" y2="65" />
+        <line class="vent" x1="7" y1="70" x2="52" y2="70" />
 
-    <!-- Using simple circle positioning -->
-    <circle *ngFor="let packet of packets" r="3" fill="#6366f1"
-      [attr.cx]="packet.startX + ((packet.targetX - packet.startX) * (packet.progress / 100)) + '%'"
-      [attr.cy]="packet.startY + ((packet.targetY - packet.startY) * (packet.progress / 100)) + '%'">
-    </circle>
-  </svg>
+        @for (g of s.gpus; track g.n) {
+        <g [attr.transform]="'translate(' + (62 + (g.n - 1) * 71) + ' 6)'">
+          <rect class="gpu" width="68" height="66" rx="3" />
+          @for (fx of [19, 49]; track fx) {
+          <g [attr.transform]="'translate(' + fx + ' 22)'">
+            <circle class="fan-case" r="13.5" />
+            <g #rotor class="rotor">
+              @for (b of blades; track b) {
+              <path [attr.transform]="'rotate(' + b + ')'" d="M0-2.6C4-11.5 9.5-10.5 11-5.6 7-7.4 3.4-4.4 0-2.6Z" />
+              }
+            </g>
+            <circle class="fan-hub" r="3" />
+          </g>
+          }
+          <text class="silk temp" x="6" y="50">{{ g.temp }} °C</text>
+          <circle class="led gpu-led" [class.busy]="!!g.job" cx="60" cy="47" r="2.2" />
+          <rect class="bar-track" x="6" y="55" width="56" height="4.5" rx="2.25" />
+          <rect class="bar-fill" width="56" height="4.5" rx="2.25" [style.fill]="loadColor(g.load)"
+            [style.transform]="'translate(6px,55px) scaleX(' + g.load / 100 + ')'" />
+        </g>
+        }
+      </g>
+      }
 
-  <!-- Server Rack -->
-  <div
-    class="relative z-10 w-full max-w-4xl flex-1 flex flex-col gap-4 p-2 sm:p-4 bg-gray-50 border border-slate-200 rounded-xl backdrop-blur-sm shadow-sm overflow-y-auto">
+      <!-- Nobreak -->
+      <g transform="translate(22 414)">
+        <rect class="unit" width="276" height="22" rx="3" />
+        <text class="silk" x="8" y="14.5">{{ t('ups') }}</text>
+        @for (b of battery; track b) {
+        <rect class="cell" [attr.x]="96 + b * 9" y="7" width="6.5" height="8" rx="1" />
+        }
+        <text class="silk watt" x="268" y="14.5" text-anchor="end">{{ num(totalPower(), 2) }} kW</text>
+      </g>
+    </svg>
 
-    <!-- Server Units -->
-    <div *ngFor="let server of servers"
-      class="w-full bg-white border border-slate-200 rounded-lg p-2 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 shadow-sm">
-
-      <!-- Server Info -->
-      <div
-        class="w-full sm:w-24 flex sm:flex-col items-center justify-between sm:justify-center border-b sm:border-b-0 sm:border-r border-slate-200 pb-2 sm:pb-0 sm:pr-2"
-        [ngClass]="{'opacity-50 grayscale': server.status === 'offline'}">
-        <div class="flex items-center gap-2 sm:flex-col">
-          <fa-icon [icon]="faServer" class="text-lg sm:text-xl mb-0 sm:mb-1 transition-colors"
-            [class.text-green-500]="server.status === 'online'"
-            [class.text-red-500]="server.status === 'offline'"></fa-icon>
-          <span class="text-[10px] font-mono text-slate-500">{{ server.id }}</span>
-        </div>
-
-        <div class="flex flex-col gap-1 items-end sm:items-center mt-0 sm:mt-2">
-          <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border"
-            [class.bg-green-100]="server.status === 'online'" [class.text-green-700]="server.status === 'online'"
-            [class.border-green-200]="server.status === 'online'" [class.bg-red-100]="server.status === 'offline'"
-            [class.text-red-700]="server.status === 'offline'" [class.border-red-200]="server.status === 'offline'">
-            {{ server.status === 'online' ? 'ONLINE' : 'OFFLINE' }}
+    <div class="side">
+      <!-- Painel do servidor selecionado: o nó é recriado só quando a seleção muda, para animar a entrada -->
+      @for (s of [selected()]; track s.id) {
+      <section class="panel" aria-live="off">
+        <div class="panel-head">
+          <div class="panel-name">{{ s.name }}</div>
+          <span class="pill" [class.off]="s.state === 'offline'" [class.boot]="s.state === 'booting'">
+            <span class="dot"></span>{{ t(stateKey(s.state)) }}
           </span>
+        </div>
 
-          <button (click)="toggleServerStatus(server)"
-            class="text-[8px] sm:text-[9px] px-2 py-1 rounded bg-white border border-slate-300 hover:bg-slate-100 transition-colors text-slate-600 whitespace-nowrap hidden sm:block">
-            {{ server.status === 'online' ? 'Simular Falha' : 'Reiniciar' }}
+        @for (g of s.gpus; track g.n) {
+        <div class="gpu-row">
+          <div class="gpu-top">
+            <span class="gpu-name">{{ t('gpu', { n: g.n }) }}</span>
+            <span class="gpu-job">{{ g.job ? t(g.job) : (s.state === 'online' ? t('idle') : '—') }}</span>
+            <span class="gpu-prog">{{ g.job ? pct(g.progress) : '' }}</span>
+          </div>
+          <div class="meter">
+            <div class="meter-fill" [style.transform]="'scaleX(' + g.load / 100 + ')'"
+              [style.background-color]="loadColor(g.load)"></div>
+          </div>
+          <div class="gpu-meta">
+            <span>{{ t('load') }} {{ pct(g.load) }}</span>
+            <span>{{ g.temp }} °C</span>
+            <span>{{ t('vram') }} {{ num(g.vram, 1) }}/{{ vramTotal }} GB</span>
+          </div>
+        </div>
+        }
+
+        <div class="panel-foot">
+          <span class="power"><fa-icon [icon]="icons.bolt"></fa-icon> {{ t('power') }}: <b>{{ num(s.power) }} W</b></span>
+          <button type="button" class="act" [class.danger]="s.state === 'online'" [disabled]="s.state === 'booting'"
+            (click)="toggle(s.id)">
+            <fa-icon [icon]="s.state === 'online' ? icons.power : icons.restart"></fa-icon>
+            {{ s.state === 'online' ? t('simulateFail') : s.state === 'booting' ? t('bootingBtn') : t('restart') }}
           </button>
-          <!-- Mobile simplified button -->
-          <button (click)="toggleServerStatus(server)" class="sm:hidden text-[8px] text-red-500 underline">
-            {{ server.status === 'online' ? 'Desligar' : 'Ligar' }}
-          </button>
         </div>
-      </div>
+        <p class="note" [class.show]="s.state === 'offline'">{{ t('failNote') }}</p>
+      </section>
+      }
 
-      <!-- GPUs Container -->
-      <div class="w-full grid grid-cols-3 gap-1 sm:gap-4">
-        <div *ngFor="let gpu of server.gpus" #gpuElement
-          class="relative rounded border border-slate-200 p-1 flex flex-col items-center justify-between transition-colors duration-300 min-h-0 bg-white"
-          [style.box-shadow]="gpu.active ? '0 0 15px ' + gpu.color : 'none'"
-          [class.border-red-200]="gpu.status === 'overheating' || gpu.load > 90">
-
-          <!-- GPU Label & Flash Icon -->
-          <div class="w-full flex justify-between items-center text-[8px] font-mono text-slate-600 mb-0.5">
-            <div class="flex items-center gap-1 overflow-hidden">
-              <fa-icon [icon]="faMicrochip" class="text-slate-400"></fa-icon>
-              <span class="truncate max-w-[60px]">{{ gpu.name }}</span>
-            </div>
-            <fa-icon [icon]="faBolt" class="text-[8px] transition-colors" [class.text-yellow-400]="gpu.active"
-              [class.text-slate-200]="!gpu.active"></fa-icon>
+      <section class="summary">
+        <div class="kpis">
+          <div class="kpi">
+            <span class="kpi-label"><fa-icon [icon]="icons.bolt"></fa-icon> {{ t('totalPower') }}</span>
+            <span class="kpi-val">{{ num(totalPower(), 2) }} kW</span>
           </div>
-
-
-
-          <!-- Detailed Stats (Temp/Mem) -->
-          <div class="w-full flex justify-between text-[7px] text-slate-400 mb-0.5 font-mono">
-            <span>{{ gpu.temperature | number:'1.0-0' }}°C</span>
-            <span>MEM: {{ gpu.memory | number:'1.0-0' }}GB</span>
-          </div>
-
-          <!-- Fans -->
-          <div class="flex gap-0.5 sm:gap-2 items-center justify-center w-full py-0.5">
-            <div *ngFor="let fan of [1,2,3]"
-              class="w-4 h-4 sm:w-8 sm:h-8 rounded-full border border-slate-200 flex items-center justify-center relative overflow-hidden bg-gray-50 shrink-0">
-              <fa-icon [icon]="faWind" class="text-slate-300 text-[10px] sm:text-sm transition-transform"
-                [style.animation]="gpu.fansSpeed > 0 ? 'spin ' + (2000 / (gpu.fansSpeed + 10)) + 'ms linear infinite' : 'none'"
-                [style.opacity]="0.5 + (gpu.fansSpeed / 200)"></fa-icon>
-            </div>
-          </div>
-
-          <!-- Task & Progress -->
-          <div class="w-full mt-0.5">
-            <!-- Task Name -->
-            <div
-              class="text-[7px] text-center truncate w-full h-3 mb-0.5 text-slate-500 bg-slate-50 rounded px-1 border border-slate-100">
-              {{ gpu.currentTask || 'Ocioso...' }}
-            </div>
-
-            <!-- Heat/Load Bar -->
-            <div class="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full transition-all duration-300" [style.width.%]="gpu.load"
-                [style.background-color]="gpu.load > 80 ? '#ef4444' : (gpu.load > 50 ? '#eab308' : '#22c55e')">
-              </div>
-            </div>
+          <div class="kpi">
+            <span class="kpi-label"><fa-icon [icon]="icons.done"></fa-icon> {{ t('done') }}</span>
+            <span class="kpi-val">{{ num(done()) }}</span>
           </div>
         </div>
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- Sidebar / Task Queue Summary (Desktop Only Overlay or Below) -->
-  <div
-    class="relative z-10 w-full max-w-4xl mt-4 bg-white border border-slate-200 rounded-lg p-2 flex flex-col sm:flex-row gap-4 h-32 overflow-hidden shadow-sm">
-    <!-- Task Queue -->
-    <div class="flex-1 flex flex-col min-w-0">
-      <h4 class="text-[10px] uppercase font-bold text-slate-500 mb-2 flex justify-between">
-        Fila de Processamento <span class="bg-unrender-purple text-white px-1 rounded">{{ taskQueue.length }}</span>
-      </h4>
-      <div class="overflow-y-auto space-y-1 custom-scrollbar pr-1">
-        <div *ngFor="let task of taskQueue"
-          class="text-[9px] bg-slate-50 p-1.5 rounded border-l-2 border-unrender-purple flex justify-between items-center">
-          <span class="truncate text-slate-700 mr-2">{{ task.name }}</span>
-          <span class="text-slate-400">{{ task.progress }}%</span>
+        <div class="queue">
+          <div class="queue-title"><fa-icon [icon]="icons.queue"></fa-icon> {{ t('queue') }}</div>
+          <ul>
+            @for (j of queue(); track j.id) {
+            <li><span class="q-name">{{ t(j.key) }}</span><span class="q-state">{{ t('waiting') }}</span></li>
+            } @empty {
+            <li class="empty">{{ t('queueEmpty') }}</li>
+            }
+          </ul>
         </div>
-        <div *ngIf="taskQueue.length === 0" class="text-center text-slate-300 text-[9px] italic p-2">Sem tarefas
-          pendentes</div>
-      </div>
-    </div>
+      </section>
 
-    <!-- System Stats -->
-    <div
-      class="w-full sm:w-1/3 border-t sm:border-t-0 sm:border-l border-slate-100 pt-2 sm:pt-0 sm:pl-4 flex flex-col justify-center gap-2">
-      <div class="flex justify-between items-center text-[10px] text-slate-600">
-        <span><fa-icon [icon]="faBolt" class="text-yellow-500 mr-1"></fa-icon> Consumo Total</span>
-        <span class="font-bold font-mono">{{ (300 + (packets.length * 50)) | number:'1.0-0' }}W</span>
-      </div>
-      <div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-        <div class="bg-yellow-400 h-full transition-all duration-500"
-          [style.width.%]="(300 + (packets.length * 50)) / 20"></div>
-      </div>
-      <div class="text-[8px] text-slate-400 text-right mt-1">Simulação em Tempo Real</div>
+      <p class="hint">{{ t('hint') }}</p>
     </div>
   </div>
-
 </div>

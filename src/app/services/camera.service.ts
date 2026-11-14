@@ -1,5 +1,8 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
+
+/** Motivo de a câmera não ter aberto, para a interface escolher a mensagem certa. */
+export type CameraErrorKind = 'denied' | 'notFound' | 'insecure' | 'busy' | 'unknown';
 
 @Injectable({
   providedIn: 'root'
@@ -10,52 +13,61 @@ export class CameraService {
   private stream: MediaStream | null = null;
   private subscribers = 0;
 
-  constructor() { }
+  /** Classifica o erro do `getUserMedia` (ou a falta da API) em um motivo exibível. */
+  static errorKind(err: unknown): CameraErrorKind {
+    const name = (err as { name?: string } | null)?.name ?? '';
+    const message = (err as { message?: string } | null)?.message ?? '';
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') return 'denied';
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') return 'notFound';
+    if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') return 'busy';
+    if (/secure context/i.test(message)) return 'insecure';
+    return 'unknown';
+  }
 
   async startCamera(): Promise<MediaStream> {
-    this.subscribers++;
-
     if (this.stream && this.stream.active) {
-      console.log(`[CameraService] Returning existing stream. Subscribers: ${this.subscribers}`);
+      this.subscribers++;
       return this.stream;
     }
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      console.warn('Camera API not available. This feature requires a Secure Context (HTTPS or localhost).');
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      // A API só existe em contexto seguro (HTTPS ou localhost).
       throw new Error('Camera API not available (Secure Context required)');
     }
 
-    try {
-      console.log('[CameraService] Requesting new camera stream...');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        },
-        audio: false // We don't need audio for these use cases
-      });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: 'user'
+      },
+      audio: false
+    });
 
-      this.stream = stream;
-      this.streamSubject.next(stream);
-
-      // Handle stream checking when tracks end unexpectedly
-      stream.getVideoTracks()[0].onended = () => {
-        console.warn('[CameraService] Stream ended unexpectedly');
-        this.handleStreamEnd();
-      };
-
-      return stream;
-    } catch (err) {
-      console.error('Error accessing camera:', err);
-      this.subscribers--;
-      throw err;
+    // Outro pedido pode ter aberto a câmera enquanto este aguardava a permissão.
+    if (this.stream && this.stream.active) {
+      stream.getTracks().forEach(track => track.stop());
+      this.subscribers++;
+      return this.stream;
     }
+
+    this.subscribers++;
+    this.stream = stream;
+    this.streamSubject.next(stream);
+
+    // A faixa pode terminar sozinha (câmera desconectada, permissão revogada).
+    const [track] = stream.getVideoTracks();
+    if (track) {
+      track.onended = () => {
+        if (this.stream === stream) this.handleStreamEnd();
+      };
+    }
+
+    return stream;
   }
 
   stopCamera() {
     this.subscribers--;
-    console.log(`[CameraService] stopCamera called. Subscribers: ${this.subscribers}`);
 
     if (this.subscribers <= 0) {
       this.forceStopCamera();
@@ -63,7 +75,6 @@ export class CameraService {
   }
 
   private forceStopCamera() {
-    console.log('[CameraService] Stopping camera stream completely.');
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;

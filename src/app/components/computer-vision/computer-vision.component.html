@@ -1,26 +1,67 @@
-<div class="cv-container">
-  <div class="viewport">
-    <video #videoElement playsinline muted></video>
-    <canvas #canvasElement></canvas>
-    <img *ngIf="!isCameraActive" src="cv-test.gif" class="background-gif" alt="Computer Vision Preview">
+<div class="cv">
+  <div class="cv-viewport" [class.is-active]="phase() === 'active'" role="group" [attr.aria-label]="t('viewportLabel')">
+    <video #videoElement playsinline muted aria-hidden="true"></video>
+    <canvas #canvasElement aria-hidden="true"></canvas>
 
-    <div class="overlay-controls" [class.camera-active]="isCameraActive">
-      <div *ngIf="loadingStatus" class="loading-container">
-        <div class="spinner"></div>
-      </div>
+    <!-- Prévia gravada: fica por baixo e some com fade quando a câmera abre -->
+    <img
+      class="cv-preview"
+      [class.is-hidden]="phase() === 'active'"
+      src="/cv-test.gif"
+      [alt]="t('previewAlt')"
+      loading="lazy"
+      decoding="async">
+    <div class="cv-scrim" [class.is-hidden]="phase() === 'active'" aria-hidden="true"></div>
 
-      <div *ngIf="error" class="status-glass error">
-        {{ error }}
-      </div>
+    <div class="cv-overlay" [class.is-active]="phase() === 'active'">
+      @if (busy()) {
+        <div class="cv-status" role="status">
+          <span class="cv-spinner" aria-hidden="true"></span>
+          <span>{{ statusText() }}</span>
+        </div>
+      }
 
-      <div class="actions" *ngIf="!loadingStatus">
-        <button *ngIf="!isCameraActive" (click)="startCamera()" class="btn-glass">
-          Iniciar Câmera
-        </button>
-        <button *ngIf="isCameraActive" (click)="stopCamera()" class="btn-glass stop">
-          Parar Câmera
-        </button>
-      </div>
+      @if (phase() === 'error') {
+        <div class="cv-status cv-error" role="alert">
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          <span>{{ errorText() }}</span>
+        </div>
+      }
+
+      @if (phase() === 'idle') {
+        <p class="cv-cta">{{ t('cta') }}</p>
+      }
+
+      @if (!busy()) {
+        @if (phase() === 'active') {
+          <button type="button" class="cv-btn cv-btn-stop" (click)="stopCamera()">
+            <i class="fa-solid fa-stop" aria-hidden="true"></i>
+            {{ ct('stop') }}
+          </button>
+        } @else {
+          <button type="button" class="cv-btn" (click)="startCamera()">
+            <i class="fa-solid fa-video" aria-hidden="true"></i>
+            {{ ct(phase() === 'error' ? 'retry' : 'start') }}
+          </button>
+        }
+      }
     </div>
+  </div>
+
+  <div class="cv-foot">
+    <!-- Altura reservada: a lista aparece/some sem empurrar o que vem abaixo -->
+    <div class="cv-detected" [class.is-visible]="phase() === 'active'" [attr.aria-hidden]="phase() !== 'active'">
+      <span class="cv-detected-title">{{ t('detected') }}{{ i18n.lang() === 'fr' ? ' :' : ':' }}</span>
+      @for (cls of detected(); track cls) {
+        <span class="cv-chip">{{ labelFor(cls) }}</span>
+      } @empty {
+        <span class="cv-empty">{{ t('nothing') }}</span>
+      }
+    </div>
+
+    <p class="cv-privacy">
+      <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+      <span>{{ ct('privacy') }}</span>
+    </p>
   </div>
 </div>

@@ -1,0 +1,367 @@
+<!-- Cabeçalho comum das seções: número, sobretítulo e título no idioma atual -->
+<ng-template #cabecalho let-id="id" let-numero="numero">
+  <p class="pol-sec__kicker">
+    <span class="pol-sec__num">{{ numero }}</span>
+    <span>{{ cabecalhoDe(id).kicker }}</span>
+  </p>
+  <h2 class="pol-h2">{{ cabecalhoDe(id).title }}</h2>
+</ng-template>
+
+<main class="pol">
+  <!-- Topo da página -->
+  <section class="pol-hero">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="pol-hero__top">
+        <a routerLink="/inicio" class="pol-back print-hide">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          <span>{{ t('back') }}</span>
+        </a>
+
+        <div class="pol-badges">
+          <span class="pol-badge pol-badge--ok">
+            <span class="pol-badge__dot" aria-hidden="true"></span>
+            {{ t('inForce') }}
+          </span>
+          <span class="pol-badge pol-badge--accent">
+            <i class="fa-solid fa-code-commit" aria-hidden="true"></i>
+            {{ t('updated', { versao: versao, data: ultimaAtualizacao() }) }}
+          </span>
+        </div>
+      </div>
+
+      <div class="max-w-4xl">
+        <p class="pol-kicker">{{ c().hero.kicker }}</p>
+        <h1 class="pol-h1">
+          {{ c().hero.titlePre }} <span>{{ c().hero.titleHl }}</span> {{ c().hero.titlePost }}
+        </h1>
+        <p class="pol-lead pol-rich" [innerHTML]="c().hero.intro"></p>
+
+        <div class="pol-actions print-hide">
+          <button type="button" class="pol-btn" (click)="imprimir()">
+            <i class="fa-solid fa-print" aria-hidden="true"></i>
+            <span>{{ t('print') }}</span>
+          </button>
+          <button type="button" class="pol-btn" [class.is-done]="copiadoFeedback()" (click)="copiarLink()">
+            <i class="fa-solid" [class]="copiadoFeedback() ? 'fa-check' : 'fa-link'" aria-hidden="true"></i>
+            <span aria-live="polite">{{ copiadoFeedback() ? t('copied') : t('copy') }}</span>
+          </button>
+          <a class="pol-btn pol-btn--accent" [href]="mailto('subjectRights')">
+            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+            <span>{{ t('dpoChannel') }}</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Índice + seções -->
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-16">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-start">
+
+      <aside class="pol-aside lg:col-span-4 min-w-0 print-hide">
+        <nav class="pol-index" [attr.aria-label]="t('indexTitle')">
+          <!-- Celular: o índice é recolhível para não empurrar o texto para baixo -->
+          <button type="button" class="pol-index__head pol-index__head--toggle" (click)="alternarIndice()"
+            [attr.aria-expanded]="indiceAberto()" aria-controls="pol-index-list"
+            [attr.aria-label]="t(indiceAberto() ? 'indexHide' : 'indexShow')">
+            <span class="pol-index__title"><i class="fa-solid fa-list-ol" aria-hidden="true"></i>{{ t('indexTitle') }}</span>
+            <span class="pol-index__count">{{ t('indexCount', { n: secoes.length }) }}</span>
+            <i class="fa-solid fa-chevron-down pol-index__chev" [class.is-open]="indiceAberto()" aria-hidden="true"></i>
+          </button>
+          <!-- Desktop: sempre aberto -->
+          <div class="pol-index__head pol-index__head--static">
+            <span class="pol-index__title"><i class="fa-solid fa-list-ol" aria-hidden="true"></i>{{ t('indexTitle') }}</span>
+            <span class="pol-index__count">{{ t('indexCount', { n: secoes.length }) }}</span>
+          </div>
+
+          <ol id="pol-index-list" class="pol-index__list" [class.is-open]="indiceAberto()">
+            @for (secao of secoes; track secao.id) {
+              <li>
+                <a [href]="'/politica#' + secao.id" (click)="irPara(secao.id, $event)" class="pol-index__link"
+                  [class.is-active]="secaoAtiva() === secao.id"
+                  [attr.aria-current]="secaoAtiva() === secao.id ? 'location' : null">
+                  <span class="pol-index__num">{{ secao.numero }}</span>
+                  <i class="fa-solid" [class]="secao.icone" aria-hidden="true"></i>
+                  <span class="pol-index__text">{{ c().secoes[secao.id].menu }}</span>
+                </a>
+              </li>
+            }
+          </ol>
+        </nav>
+
+        <div class="pol-dpo-box">
+          <p class="pol-dpo-box__title">
+            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+            {{ t('dpoBoxTitle') }}
+          </p>
+          <p>{{ t('dpoBoxText') }}</p>
+          <a [href]="mailto('subjectPrivacy')">{{ email }} {{ t('dpoSubjectHint') }}</a>
+        </div>
+      </aside>
+
+      <div class="lg:col-span-8 min-w-0 pol-content">
+
+        <!-- 01. Identificação e encarregado -->
+        <section id="identificacao" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'identificacao', numero: '01' }"></ng-container>
+          <p>{{ c().s1.intro }}</p>
+
+          <div class="pol-grid pol-grid--2">
+            <div class="pol-card pol-card--solid">
+              <span class="pol-label">{{ c().s1.controllerLabel }}</span>
+              <strong class="pol-card__strong">UNRENDER Software LTDA</strong>
+              <span class="pol-card__line">{{ c().s1.taxId }}</span>
+            </div>
+            <div class="pol-card pol-card--solid">
+              <span class="pol-label">{{ c().s1.hqLabel }}</span>
+              <strong class="pol-card__strong">NEW WORKING CUIABÁ</strong>
+              <span class="pol-card__line">{{ c().s1.address }}</span>
+              <span class="pol-card__line pol-muted">{{ c().s1.zip }}</span>
+            </div>
+          </div>
+
+          <div class="pol-callout">
+            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+            <div>
+              <strong class="pol-callout__title">{{ c().s1.dpoTitle }}</strong>
+              <p class="pol-rich" [innerHTML]="c().s1.dpoText"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 02. Princípios e governança -->
+        <section id="principios" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'principios', numero: '02' }"></ng-container>
+          <p>{{ c().s2.intro }}</p>
+
+          <div class="pol-grid pol-grid--2">
+            @for (card of c().s2.cards; track $index) {
+              <div class="pol-card">
+                <h3 class="pol-card__title">
+                  <i class="fa-solid" [class]="iconesPrincipios[$index]" aria-hidden="true"></i>
+                  <span>{{ card.title }}</span>
+                </h3>
+                <p class="pol-rich" [innerHTML]="card.text"></p>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- 03. Dados coletados -->
+        <section id="dados-coletados" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'dados-coletados', numero: '03' }"></ng-container>
+          <p>{{ c().s3.intro }}</p>
+
+          <div class="pol-stack">
+            @for (grupo of c().s3.grupos; track $index) {
+              <div class="pol-card pol-card--solid">
+                <div class="pol-card__head">
+                  <h3 class="pol-card__title">
+                    <i class="fa-solid" [class]="iconesColeta[$index]" aria-hidden="true"></i>
+                    <span>{{ grupo.title }}</span>
+                  </h3>
+                  <span class="pol-chip">{{ grupo.badge }}</span>
+                </div>
+                <p>{{ grupo.lead }}</p>
+                <ul class="pol-list">
+                  @for (item of grupo.itens; track $index) {
+                    <li>{{ item }}</li>
+                  }
+                </ul>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- 04. Controlador e operador -->
+        <section id="controlador-operador" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'controlador-operador', numero: '04' }"></ng-container>
+          <p>{{ c().s4.intro }}</p>
+
+          <div class="pol-grid pol-grid--2">
+            <div class="pol-card">
+              <h3 class="pol-card__title pol-card__title--lg">
+                <i class="fa-solid fa-crown" aria-hidden="true"></i>
+                <span>{{ c().s4.controller.title }}</span>
+              </h3>
+              <p class="pol-rich" [innerHTML]="c().s4.controller.p1"></p>
+              <p class="pol-rich pol-muted" [innerHTML]="c().s4.controller.p2"></p>
+            </div>
+            <div class="pol-card">
+              <h3 class="pol-card__title pol-card__title--lg pol-card__title--ok">
+                <i class="fa-solid fa-gears" aria-hidden="true"></i>
+                <span>{{ c().s4.processor.title }}</span>
+              </h3>
+              <p class="pol-rich" [innerHTML]="c().s4.processor.p1"></p>
+              <p class="pol-rich pol-muted" [innerHTML]="c().s4.processor.p2"></p>
+            </div>
+          </div>
+
+          <div class="pol-callout pol-callout--neutral">
+            <i class="fa-solid fa-server" aria-hidden="true"></i>
+            <div>
+              <h3 class="pol-callout__title">{{ c().s4.onprem.title }}</h3>
+              <p class="pol-rich" [innerHTML]="c().s4.onprem.text"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 05. Bases legais e finalidades -->
+        <section id="bases-legais" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'bases-legais', numero: '05' }"></ng-container>
+          <p>{{ c().s5.intro }}</p>
+
+          <!-- No celular cada linha vira um cartão (rótulos via data-label): sem rolagem lateral. -->
+          <table class="pol-table">
+            <thead>
+              <tr>
+                @for (col of c().s5.cols; track $index) {
+                  <th scope="col">{{ col }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of c().s5.rows; track $index) {
+                <tr>
+                  <th scope="row" [attr.data-label]="c().s5.cols[0]">{{ row[0] }}</th>
+                  <td [attr.data-label]="c().s5.cols[1]">{{ row[1] }}</td>
+                  <td class="pol-table__basis" [attr.data-label]="c().s5.cols[2]">{{ row[2] }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+
+        <!-- 06. Segurança e retenção -->
+        <section id="seguranca" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'seguranca', numero: '06' }"></ng-container>
+          <p>{{ c().s6.intro }}</p>
+
+          <div class="pol-grid pol-grid--3">
+            @for (card of c().s6.cards; track $index) {
+              <div class="pol-card">
+                <div class="pol-card__icon"><i class="fa-solid" [class]="iconesSeguranca[$index]" aria-hidden="true"></i></div>
+                <h3 class="pol-card__title">{{ card.title }}</h3>
+                <p class="pol-rich" [innerHTML]="card.text"></p>
+              </div>
+            }
+          </div>
+
+          <h3 class="pol-h3">{{ c().s6.retentionTitle }}</h3>
+          <ul class="pol-list pol-list--spaced">
+            @for (item of c().s6.retention; track $index) {
+              <li><strong>{{ item.label }}</strong>&ngsp;<span class="pol-rich" [innerHTML]="item.text"></span></li>
+            }
+          </ul>
+        </section>
+
+        <!-- 07. Compartilhamento -->
+        <section id="compartilhamento" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'compartilhamento', numero: '07' }"></ng-container>
+
+          <p class="pol-notice pol-rich" [innerHTML]="c().s7.notice"></p>
+          <p>{{ c().s7.intro }}</p>
+          <ul class="pol-list pol-list--spaced">
+            @for (item of c().s7.itens; track $index) {
+              <li><strong>{{ item.label }}</strong>&ngsp;<span class="pol-rich" [innerHTML]="item.text"></span></li>
+            }
+          </ul>
+        </section>
+
+        <!-- 08. Cookies -->
+        <section id="cookies" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'cookies', numero: '08' }"></ng-container>
+          <p>{{ c().s8.intro }}</p>
+
+          <div class="pol-stack">
+            @for (card of c().s8.cards; track $index) {
+              <div class="pol-card">
+                <span class="pol-label" [class.pol-label--ok]="$index === 0">{{ card.title }}</span>
+                <p class="pol-rich" [innerHTML]="card.text"></p>
+              </div>
+            }
+          </div>
+
+          <p class="pol-muted">{{ c().s8.note }}</p>
+        </section>
+
+        <!-- 09. Direitos do titular -->
+        <section id="direitos-titular" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'direitos-titular', numero: '09' }"></ng-container>
+          <p>{{ c().s9.intro }}</p>
+
+          <ul class="pol-grid pol-grid--2 pol-rights">
+            @for (right of c().s9.rights; track $index) {
+              <li class="pol-card pol-right">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+                <div>
+                  <strong>{{ right.title }}</strong>
+                  <span class="pol-rich" [innerHTML]="right.text"></span>
+                </div>
+              </li>
+            }
+          </ul>
+
+          <div class="pol-callout pol-callout--block">
+            <div>
+              <h3 class="pol-callout__title">{{ c().s9.howTitle }}</h3>
+              <p class="pol-rich" [innerHTML]="c().s9.howText"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 10. Termos de uso -->
+        <section id="termos-uso" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'termos-uso', numero: '10' }"></ng-container>
+          <p>{{ c().s10.intro }}</p>
+          <ul class="pol-list pol-list--spaced">
+            @for (item of c().s10.itens; track $index) {
+              <li><strong>{{ item.label }}</strong>&ngsp;<span class="pol-rich" [innerHTML]="item.text"></span></li>
+            }
+          </ul>
+        </section>
+
+        <!-- 11. Canal do DPO e foro -->
+        <section id="contato-dpo" class="pol-sec">
+          <ng-container *ngTemplateOutlet="cabecalho; context: { id: 'contato-dpo', numero: '11' }"></ng-container>
+          <p>{{ c().s11.intro }}</p>
+
+          <div class="pol-card pol-card--solid pol-card--accent">
+            <h3 class="pol-card__title pol-card__title--lg">
+              <i class="fa-solid fa-headset" aria-hidden="true"></i>
+              <span>{{ c().s11.boxTitle }}</span>
+            </h3>
+            <dl class="pol-grid pol-grid--2 pol-contacts">
+              <div>
+                <dt>{{ c().s11.dpoEmailLabel }}</dt>
+                <dd><a class="pol-contacts__accent" [href]="mailto('subjectService')">{{ email }} {{ t('dpoSubjectHint') }}</a></dd>
+              </div>
+              <div>
+                <dt>{{ c().s11.supportLabel }}</dt>
+                <dd><a [href]="'mailto:' + email">{{ email }}</a></dd>
+              </div>
+              <div>
+                <dt>{{ c().s11.phoneLabel }}</dt>
+                <dd><a href="https://wa.me/5565999207154" target="_blank" rel="noopener noreferrer">{{ c().s11.phone }}</a></dd>
+              </div>
+              <div>
+                <dt>{{ c().s11.venueLabel }}</dt>
+                <dd>{{ c().s11.venue }}</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <a href="/politica" class="pol-top print-hide" (click)="irParaTopo($event)">
+          <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+          <span>{{ t('backToTop') }}</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rodapé / contato da Unrender -->
+  <div class="pol-footer print-hide">
+    <app-contact></app-contact>
+  </div>
+</main>

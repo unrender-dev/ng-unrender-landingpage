@@ -1,1 +1,128 @@
-// Styles moved to Tailwind in HTML
+:host {
+  display: block;
+  // As colunas respondem à largura da área da feature, não à da janela.
+  container-type: inline-size;
+}
+
+.hc {
+  :is(a, button):focus-visible {
+    outline: 2px solid #f99126;
+    outline-offset: 2px;
+  }
+}
+
+.hc-wrap {
+  overflow-wrap: anywhere;
+}
+
+.hc-search:focus-within {
+  border-color: #f99126;
+  box-shadow: 0 0 0 3px rgba(249, 145, 38, 0.18);
+}
+
+.hc-grid {
+  grid-template-columns: minmax(0, 1fr);
+
+  @container (min-width: 560px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @container (min-width: 880px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.hc-btn {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+// Categorias: a borda direita esmaecida indica que a faixa rola.
+.hc-pills {
+  scrollbar-width: none;
+  padding-right: 28px;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.hc-card {
+  // `backwards`: depois da entrada o transform volta a obedecer ao :hover.
+  animation: hc-entrada 0.4s ease-out backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(16, 5, 28, 0.12);
+  }
+}
+
+.hc-card-img {
+  transition: transform 0.5s ease;
+
+  .hc-card:hover & {
+    transform: scale(1.04);
+  }
+}
+
+.hc-vazio {
+  animation: hc-entrada 0.3s ease-out both;
+}
+
+.hc-pulse {
+  animation: hc-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes hc-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// Vai e volta: o fim do ciclo é igual ao começo (sem salto).
+@keyframes hc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-card,
+  .hc-vazio,
+  .hc-pulse {
+    animation: none;
+  }
+
+  .hc-btn,
+  .hc-card,
+  .hc-card-img {
+    transition: none;
+  }
+
+  .hc-card:hover,
+  .hc-card:hover .hc-card-img {
+    transform: none;
+  }
+}

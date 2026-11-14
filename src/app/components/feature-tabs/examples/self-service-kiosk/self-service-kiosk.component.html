@@ -1,207 +1,229 @@
-<div class="kiosk-container">
-    <!-- MODE TOGGLE -->
-    <div class="mode-toggle">
-        <button [class.active]="kioskMode === 'food'" (click)="setMode('food')">
-            <fa-icon [icon]="faUtensils"></fa-icon> Food
-        </button>
-        <button [class.active]="kioskMode === 'photo'" (click)="setMode('photo')">
-            <fa-icon [icon]="faCamera"></fa-icon> Photo
-        </button>
-    </div>
-    <!-- Kiosk Hardware Frame -->
-    <div class="kiosk-frame">
-        <div class="kiosk-bezel">
-            <div class="camera-hole"></div>
+<div class="kiosk" (pointerdown)="onTouch()">
 
-            <!-- IDLE SCREEN -->
-            <div class="screen idle-screen" *ngIf="kioskMode === 'food' && state === 'idle'" (click)="startOrder()">
-                <div class="logo-area">
-                    <div class="icon-circle">
-                        <fa-icon [icon]="faUtensils"></fa-icon>
-                    </div>
-                    <h1>Unrender<br>Burgers</h1>
+  <!-- Modo -->
+  <div class="mode-toggle" role="group" [attr.aria-label]="t('modes')">
+    <button type="button" [class.active]="mode() === 'food'" [class.tap]="tapId() === 'mode-food'"
+      [attr.aria-pressed]="mode() === 'food'" (click)="setMode('food')">
+      <fa-icon [icon]="icons.utensils"></fa-icon> {{ t('modeFood') }}
+    </button>
+    <button type="button" [class.active]="mode() === 'photo'" [class.tap]="tapId() === 'mode-photo'"
+      [attr.aria-pressed]="mode() === 'photo'" (click)="setMode('photo')">
+      <fa-icon [icon]="icons.camera"></fa-icon> {{ t('modePhoto') }}
+    </button>
+  </div>
+
+  <!-- Totem: tudo dentro dele é medido em `em` e escala com a largura -->
+  <div class="k-machine">
+    <div class="k-scale">
+      <div class="k-frame">
+        <span class="k-lens" aria-hidden="true"></span>
+
+        <div class="k-screen">
+          <!-- Início -->
+          <button type="button" class="k-view k-idle" [class.on]="view() === 'idle'"
+            [attr.inert]="view() === 'idle' ? null : ''" (click)="startOrder()">
+            <span class="k-logo"><fa-icon [icon]="icons.utensils"></fa-icon></span>
+            <span class="k-brand">Unrender<br>Burgers</span>
+            <span class="k-hint" [class.tap]="tapId() === 'start'"><fa-icon [icon]="icons.hand"></fa-icon>{{ t('touchStart') }}</span>
+            <span class="k-promo">{{ t('promo') }}</span>
+          </button>
+
+          <!-- Cardápio -->
+          <section class="k-view k-menu" [class.on]="view() === 'menu'" [attr.inert]="view() === 'menu' ? null : ''">
+            <header class="k-bar">
+              <strong>Unrender Burgers</strong>
+              <button type="button" class="k-link" (click)="cancelOrder()">
+                <fa-icon [icon]="icons.xmark"></fa-icon> {{ t('cancel') }}
+              </button>
+            </header>
+            <nav class="k-cats" [attr.aria-label]="t('categories')">
+              @for (cat of categories; track cat.id) {
+                <button type="button" [class.active]="selectedCategory() === cat.id"
+                  [class.tap]="tapId() === 'cat-' + cat.id" (click)="selectCategory(cat.id)">
+                  <fa-icon [icon]="cat.icon"></fa-icon><span>{{ t(cat.name) }}</span>
+                </button>
+              }
+            </nav>
+            <div class="k-grid">
+              @for (product of currentProducts(); track product.id) {
+                <button type="button" class="k-product" [class.added]="added() === product.id"
+                  [class.tap]="tapId() === 'p' + product.id" (click)="addToCart(product)"
+                  [attr.aria-label]="t('add', { name: t(product.name) })">
+                  <span class="k-product-img"><fa-icon [icon]="product.icon"></fa-icon></span>
+                  <strong>{{ t(product.name) }}</strong>
+                  <small>{{ t(product.desc) }}</small>
+                  <b>{{ i18n.money(product.price) }}</b>
+                  <span class="k-plus" aria-hidden="true">
+                    <fa-icon class="k-plus-add" [icon]="icons.plus"></fa-icon>
+                    <fa-icon class="k-plus-ok" [icon]="icons.added"></fa-icon>
+                  </span>
+                </button>
+              }
+            </div>
+            <footer class="k-summary" [class.has-items]="cart().length > 0">
+              <div>
+                <small>{{ cartLabel() }}</small>
+                <strong>{{ i18n.money(total()) }}</strong>
+              </div>
+              <button type="button" class="k-cta" [class.tap]="tapId() === 'view-cart'" [disabled]="cart().length === 0"
+                (click)="viewCart()">
+                {{ t('viewOrder') }} <fa-icon [icon]="icons.cart"></fa-icon>
+              </button>
+            </footer>
+          </section>
+
+          <!-- Carrinho -->
+          <section class="k-view k-cart" [class.on]="view() === 'cart'" [attr.inert]="view() === 'cart' ? null : ''">
+            <header class="k-bar">
+              <button type="button" class="k-link" (click)="backToMenu()">
+                <fa-icon [icon]="icons.back"></fa-icon> {{ t('back') }}
+              </button>
+              <strong>{{ t('yourOrder') }}</strong>
+            </header>
+            <div class="k-list">
+              @for (item of cart(); track item.uid) {
+                <div class="k-item">
+                  <span class="k-product-img"><fa-icon [icon]="item.icon"></fa-icon></span>
+                  <div>
+                    <strong>{{ t(item.name) }}</strong>
+                    <b>{{ i18n.money(item.price) }}</b>
+                  </div>
+                  <button type="button" (click)="removeFromCart(item.uid)"
+                    [attr.aria-label]="t('remove', { name: t(item.name) })">
+                    <fa-icon [icon]="icons.xmark"></fa-icon>
+                  </button>
                 </div>
-                <div class="touch-hint">
-                    <fa-icon [icon]="faHandPointer" class="pulse-icon"></fa-icon>
-                    <span>Toque para começar</span>
-                </div>
-                <div class="promo-banner">
-                    <p>Experimente o novo <strong>Mega Cheddar!</strong></p>
-                </div>
+              } @empty {
+                <p class="k-empty">{{ t('emptyCart') }}</p>
+              }
+            </div>
+            <footer class="k-checkout">
+              <div><span>{{ t('total') }}</span><strong>{{ i18n.money(total()) }}</strong></div>
+              <button type="button" class="k-pay" [class.tap]="tapId() === 'pay'" [disabled]="cart().length === 0"
+                (click)="checkout()">
+                {{ t('payNow') }} <fa-icon [icon]="icons.card"></fa-icon>
+              </button>
+            </footer>
+          </section>
+
+          <!-- Pagamento -->
+          <section class="k-view k-center k-processing" [class.on]="view() === 'processing'" aria-live="polite">
+            <span class="k-spinner" aria-hidden="true"></span>
+            <strong>{{ t('processing') }}</strong>
+            <small>{{ t('tapCard') }}</small>
+          </section>
+
+          <!-- Confirmação -->
+          <section class="k-view k-center k-success" [class.on]="view() === 'success'" aria-live="polite">
+            <fa-icon class="k-success-icon" [icon]="icons.check"></fa-icon>
+            <strong>{{ t('confirmed') }}</strong>
+            <div class="k-ticket">
+              <small>{{ t('pickup') }}</small>
+              <b>{{ orderNumber() }}</b>
+            </div>
+            <div class="k-swap">
+              <span [class.on]="!receiptReady()">
+                <fa-icon [icon]="icons.receipt"></fa-icon> {{ t('printingReceipt') }}
+              </span>
+              <span [class.on]="receiptReady()">
+                <fa-icon [icon]="icons.down"></fa-icon> {{ t('takeReceipt') }}
+              </span>
+            </div>
+          </section>
+
+          <!-- Cabine de fotos: visor -->
+          <section class="k-view k-photo" [class.on]="view() === 'photo'"
+            [attr.inert]="view() === 'photo' ? null : ''">
+            <canvas #demo class="k-feed" width="412" height="600" role="img" [attr.aria-label]="t('preview')"></canvas>
+            <video #video class="k-feed k-video" [class.on]="cam() === 'on'" autoplay playsinline muted
+              aria-hidden="true"></video>
+            <span class="k-corners" aria-hidden="true"></span>
+
+            <button type="button" class="k-cam-btn" (click)="toggleCamera()" [disabled]="cam() === 'starting'">
+              <fa-icon [icon]="cam() === 'on' ? icons.videoOff : icons.video"></fa-icon>
+              {{ cam() === 'on' ? t('stopCamera') : cam() === 'starting' ? t('camStarting') : t('useCamera') }}
+            </button>
+            <p class="k-cam-msg" [class.on]="camError() !== null" role="status">
+              {{ camError() === 'denied' ? t('camDenied') : t('camUnavailable') }}
+            </p>
+
+            <div class="k-count" [class.on]="photoState() === 'countdown'" aria-hidden="true">
+              @for (n of [countdown()]; track n) {
+                <span>{{ n }}</span>
+              }
             </div>
 
-            <!-- MENU SCREEN -->
-            <div class="screen menu-screen" *ngIf="kioskMode === 'food' && state === 'menu'">
-                <header class="menu-header">
-                    <div class="brand-small">Unrender Burgers</div>
-                    <button class="cancel-btn" (click)="state = 'idle'">
-                        <fa-icon [icon]="faTimes"></fa-icon> Cancelar
-                    </button>
-                </header>
-
-                <nav class="category-nav">
-                    <button *ngFor="let cat of categories" [class.active]="selectedCategory === cat.id"
-                        (click)="selectCategory(cat.id)">
-                        <fa-icon [icon]="cat.icon"></fa-icon>
-                        <span>{{ cat.name }}</span>
-                    </button>
-                </nav>
-
-                <main class="product-grid">
-                    <div class="product-card" *ngFor="let product of currentProducts" (click)="addToCart(product)">
-                        <div class="product-img">{{ product.img }}</div>
-                        <div class="product-info">
-                            <h3>{{ product.name }}</h3>
-                            <p class="desc">{{ product.desc }}</p>
-                            <p class="price">{{ product.price | currency:'BRL' }}</p>
-                        </div>
-                        <button class="add-btn">
-                            +
-                        </button>
-                    </div>
-                </main>
-
-                <footer class="cart-summary" (click)="viewCart()" [class.has-items]="cart.length > 0">
-                    <div class="cart-info">
-                        <span class="count">{{ cart.length }} itens</span>
-                        <span class="total">{{ total | currency:'BRL' }}</span>
-                    </div>
-                    <button class="view-cart-btn" [disabled]="cart.length === 0">
-                        Ver Pedido <fa-icon [icon]="faShoppingCart"></fa-icon>
-                    </button>
-                </footer>
+            <div class="k-shutter" [class.on]="photoState() === 'idle'">
+              <button type="button" [class.tap]="tapId() === 'snap'" (click)="startCountdown()"
+                [attr.aria-label]="t('snap')"><i></i></button>
+              <p>{{ t('snapHint') }}</p>
             </div>
+          </section>
 
-            <!-- CART SCREEN -->
-            <div class="screen cart-screen" *ngIf="kioskMode === 'food' && state === 'cart'">
-                <header class="cart-header">
-                    <button class="back-btn" (click)="backToMenu()">
-                        <fa-icon [icon]="faArrowLeft"></fa-icon> Voltar
-                    </button>
-                    <h2>Seu Pedido</h2>
-                </header>
-
-                <div class="cart-list">
-                    <div class="cart-item" *ngFor="let item of cart; let i = index">
-                        <div class="item-icon">{{ item.img }}</div>
-                        <div class="item-details">
-                            <h4>{{ item.name }}</h4>
-                            <p>{{ item.price | currency:'BRL' }}</p>
-                        </div>
-                        <button class="remove-btn" (click)="removeFromCart(i, $event)">
-                            <fa-icon [icon]="faTimes"></fa-icon>
-                        </button>
-                    </div>
-                    <div class="empty-cart-msg" *ngIf="cart.length === 0">
-                        Seu carrinho está vazio
-                    </div>
-                </div>
-
-                <footer class="checkout-footer">
-                    <div class="total-row">
-                        <span>Total</span>
-                        <span class="big-price">{{ total | currency:'BRL' }}</span>
-                    </div>
-                    <button class="pay-btn" (click)="checkout()" [disabled]="cart.length === 0">
-                        Pagar Agora <fa-icon [icon]="faCreditCard"></fa-icon>
-                    </button>
-                </footer>
+          <!-- Cabine de fotos: impressão e entrega -->
+          <section class="k-view k-print" [class.on]="view() === 'print'" [attr.inert]="view() === 'print' ? null : ''">
+            <div class="k-swap k-print-msg" aria-live="polite">
+              <span [class.on]="photoState() !== 'delivered'">
+                <fa-icon class="k-pulse" [icon]="icons.print"></fa-icon>
+                <strong>{{ t('printingPhoto') }}</strong>
+                <small>{{ t('takePhoto') }}</small>
+              </span>
+              <span [class.on]="photoState() === 'delivered'">
+                <strong>{{ t('photoReady') }}</strong>
+                <small>{{ t('developing') }}</small>
+              </span>
             </div>
-
-            <!-- PROCESSING SCREEN -->
-            <div class="screen processing-screen" *ngIf="kioskMode === 'food' && state === 'processing'">
-                <div class="spinner"></div>
-                <h3>Processando Pagamento...</h3>
-                <p>Aproxime seu cartão ou celular</p>
+            <fa-icon class="k-arrow" [class.on]="photoState() === 'printing'" [icon]="icons.down"></fa-icon>
+            <div class="k-actions" [class.on]="photoState() === 'delivered'">
+              <button type="button" (click)="retakePhoto()">
+                <fa-icon [icon]="icons.redo"></fa-icon>{{ t('newPhoto') }}
+              </button>
+              <button type="button" class="is-main" (click)="simulatePrintAgain()">
+                <fa-icon [icon]="icons.print"></fa-icon>{{ t('printAgain') }}
+              </button>
+              <button type="button" (click)="savePhoto()">
+                <fa-icon [icon]="icons.download"></fa-icon>{{ t('save') }}
+              </button>
             </div>
+          </section>
 
-            <!-- SUCCESS SCREEN -->
-            <div class="screen success-screen" *ngIf="kioskMode === 'food' && state === 'success'">
-                <div class="success-icon">
-                    <fa-icon [icon]="faCheckCircle"></fa-icon>
-                </div>
-                <h2>Pedido Confirmado!</h2>
-                <div class="order-number">
-                    <span>Senha</span>
-                    <strong>{{ orderNumber }}</strong>
-                </div>
-                <div class="printing-msg">
-                    <fa-icon [icon]="faReceipt"></fa-icon> Imprimindo comprovante...
-                </div>
-
-                <!-- Animated Receipt -->
-                <div class="receipt-animation">
-                    <div class="receipt-paper">
-                        <h3>RECIBO</h3>
-                        <p>PEDIDO #{{ orderNumber }}</p>
-                        <hr>
-                        <div *ngFor="let item of cart">
-                            {{ item.name }} - {{ item.price | currency:'BRL' }}
-                        </div>
-                        <hr>
-                        <strong>TOTAL: {{ total | currency:'BRL' }}</strong>
-                    </div>
-                </div>
-            </div>
-
-            <!-- PHOTO CABIN MODE (NEW) -->
-            <div class="photo-cabin-screen" *ngIf="kioskMode === 'photo'">
-                <!-- Decorations -->
-                <div class="curtain left"></div>
-                <div class="curtain right"></div>
-
-                <!-- Live Preview State -->
-                <div class="camera-view" [class.hidden]="photoState !== 'idle' && photoState !== 'countdown'">
-                    <video #videoElement autoplay playsinline muted></video>
-                    <canvas #canvasElement style="display: none;"></canvas>
-
-                    <div class="overlay-ui">
-                        <div class="countdown-overlay" *ngIf="photoState === 'countdown'">
-                            <span>{{ countdownValue }}</span>
-                        </div>
-
-                        <div class="camera-controls" *ngIf="photoState === 'idle'">
-                            <button class="snap-btn" (click)="startCountdown()">
-                                <div class="inner-circle"></div>
-                            </button>
-                            <p>Toque para capturar</p>
-                        </div>
-                    </div>
-
-                    <div class="flash" [class.active]="flashActive"></div>
-                </div>
-
-                <!-- Printing State -->
-                <div class="printing-view" *ngIf="photoState === 'printing'">
-                    <div class="printer-slot">
-                        <div class="paper-photo">
-                            <img [src]="capturedImage" alt="Printing Photo">
-                            <div class="processing-bar"></div>
-                        </div>
-                    </div>
-                    <p class="printing-text">Imprimindo sua recordação...</p>
-                </div>
-
-                <!-- Captured Result State -->
-                <div class="result-view" *ngIf="photoState === 'captured'">
-                    <div class="photo-strip">
-                        <img [src]="capturedImage" alt="Captured Photo">
-                    </div>
-
-                    <div class="result-actions">
-                        <button class="action-btn retake" (click)="retakePhoto()">
-                            <fa-icon [icon]="faRedo"></fa-icon> Tentar Novamente
-                        </button>
-                        <button class="action-btn save" (click)="savePhoto()">
-                            <fa-icon [icon]="faDownload"></fa-icon> Salvar Foto
-                        </button>
-                    </div>
-                </div>
-            </div>
-
+          <span class="k-flash" [class.on]="flash()" aria-hidden="true"></span>
         </div>
 
-        <!-- Kiosk Stand Base (Visual only) -->
-        <div class="kiosk-base-connector"></div>
+        <!-- Fenda de saída -->
+        <div class="k-chin" role="img" [attr.aria-label]="t('slot')">
+          <span class="k-slot" [class.busy]="receipt() === 'printing' || paper() === 'eject'"><i></i></span>
+        </div>
+      </div>
+
+      <!-- Papel: sai recortado pela fenda (a borda de cima desta área é a boca da fenda) -->
+      <div class="k-out" [class.free]="paperFree()">
+        <div class="k-receipt" [attr.data-s]="receipt()" aria-hidden="true">
+          <strong>{{ t('receiptTitle') }}</strong>
+          <span>{{ t('receiptOrder', { n: orderNumber() }) }}</span>
+          <hr>
+          @for (item of cart(); track item.uid) {
+            <p><span>{{ t(item.name) }}</span><span>{{ i18n.money(item.price) }}</span></p>
+          }
+          <hr>
+          <p class="k-receipt-total"><span>{{ t('total') }}</span><span>{{ i18n.money(total()) }}</span></p>
+        </div>
+
+        <figure class="k-polaroid" [attr.data-s]="paper()" [attr.aria-hidden]="paper() === 'hidden'">
+          <div class="k-pol-img">
+            @if (capturedPhoto(); as src) {
+              <img #polImg [src]="src" [alt]="t('photoAlt')">
+            }
+          </div>
+          <figcaption>
+            <span><fa-icon [icon]="icons.bolt"></fa-icon> {{ t('polTag') }}</span>
+            <b>{{ polaroidOfferText }}</b>
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="k-neck" aria-hidden="true"></div>
+      <div class="k-base" aria-hidden="true"></div>
     </div>
+  </div>
 </div>

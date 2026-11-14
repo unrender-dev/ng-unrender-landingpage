@@ -1,14 +1,15 @@
 :host {
   display: block;
-  padding: 0;
-  display: 0;
-  width: 100%;
-  height: 100%; /* Altura padrão, pode ser ajustada via CSS. */
   position: relative;
+  width: 100%;
+  height: 100%; // a altura vem do contêiner da página
+  min-height: 320px;
+  padding: 0;
 }
 
 .graph-container {
   width: 100%;
   height: 100%;
-  background-color: transparent; /* Fundo transparente como solicitado. */
+  min-height: inherit;
+  background-color: transparent;
 }

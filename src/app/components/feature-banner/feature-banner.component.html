@@ -1,0 +1,100 @@
+<section class="fb" [class.fb--wide]="banner.layout === 'wide'" [attr.aria-label]="banner.eyebrow">
+  <div class="fb__copy">
+    <span class="fb__eyebrow">
+      <span class="fb__dot" aria-hidden="true"></span>
+      {{ banner.eyebrow }}
+    </span>
+
+    <p class="fb__title">
+      {{ headlineParts.before }}<span class="fb__accent">{{ headlineParts.accent }}</span>{{ headlineParts.after }}
+    </p>
+
+    <ul class="fb__chips">
+      @for (h of banner.highlights; track h.label) {
+      <li class="fb__chip">
+        <i [class]="h.icon" aria-hidden="true"></i>
+        <span>{{ h.label }}</span>
+      </li>
+      }
+    </ul>
+
+    @if (banner.cta) {
+    @if (isExternalCta) {
+    <a class="fb__cta" [href]="banner.cta.link" target="_blank" rel="noopener noreferrer">
+      {{ banner.cta.label }}
+      <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+    </a>
+    } @else {
+    <a class="fb__cta" [routerLink]="banner.cta.link">
+      {{ banner.cta.label }}
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+    </a>
+    }
+    }
+  </div>
+
+  <div class="fb__visual">
+    @if (banner.layout === 'wide' && banner.media?.length) {
+    <!-- Panorâmica: imagem inteira na proporção natural, sem palco fixo nem corte -->
+    <figure class="fb__showcase">
+      <img [src]="banner.media![0].src" [alt]="banner.media![0].alt" [attr.width]="banner.media![0].width"
+        [attr.height]="banner.media![0].height" loading="lazy" decoding="async" />
+      <figcaption class="fb__caption">{{ banner.media![0].alt }}</figcaption>
+    </figure>
+    } @else if (banner.media?.length) {
+    <div class="fb__stage" (mouseenter)="setPaused(true)" (mouseleave)="setPaused(false)"
+      (focusin)="setPaused(true)" (focusout)="setPaused(false)">
+      @for (m of banner.media; track m.src; let i = $index) {
+      <figure class="fb__slide" [class.is-active]="i === index" [attr.aria-hidden]="i !== index">
+        @switch (m.kind) {
+        @case ('screen') {
+        <div class="fb__browser">
+          <div class="fb__browser-bar" aria-hidden="true">
+            <span></span><span></span><span></span>
+            <em>{{ m.address || 'unrender.dev' }}</em>
+          </div>
+          <img [src]="m.src" [alt]="m.alt" loading="lazy" decoding="async" [style.object-position]="m.focus || 'left top'" />
+        </div>
+        }
+        @case ('phone') {
+        <div class="fb__phone">
+          <img [src]="m.src" [alt]="m.alt" loading="lazy" decoding="async" />
+        </div>
+        }
+        @case ('photo') {
+        <img class="fb__photo" [src]="m.src" [alt]="m.alt" loading="lazy" decoding="async"
+          [style.object-position]="m.focus || 'center'" />
+        }
+        @case ('product') {
+        <img class="fb__product" [src]="m.src" [alt]="m.alt" loading="lazy" decoding="async" />
+        }
+        }
+      </figure>
+      }
+    </div>
+
+    <div class="fb__meta">
+      <p class="fb__caption" aria-live="polite">{{ banner.media![index].alt }}</p>
+      @if (mediaCount > 1) {
+      <div class="fb__dots" role="group" [attr.aria-label]="t('choose')">
+        @for (m of banner.media; track m.src; let i = $index) {
+        <button type="button" class="fb__dot-btn" [class.is-active]="i === index" (click)="go(i)"
+          [attr.aria-label]="t('show', { alt: m.alt })" [attr.aria-pressed]="i === index">
+          <span></span>
+        </button>
+        }
+      </div>
+      }
+    </div>
+    } @else if (banner.mosaic?.length) {
+    <ul class="fb__mosaic">
+      @for (t of banner.mosaic; track t.label; let i = $index) {
+      <li class="fb__tile" [style.--i]="i">
+        <i [class]="t.icon" aria-hidden="true"></i>
+        <span>{{ t.label }}</span>
+      </li>
+      }
+    </ul>
+    }
+  </div>
+</section>

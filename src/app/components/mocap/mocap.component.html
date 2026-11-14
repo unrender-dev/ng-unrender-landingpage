@@ -1,13 +1,57 @@
-<div class="mocap-container">
-  <img *ngIf="!isStarted" src="mocap.gif" class="background-gif" alt="Mocap Preview">
-  <div id="container" #container [style.display]="isStarted ? 'block' : 'none'"></div>
+<div class="mocap">
+  <div class="mocap-stage" role="group" [attr.aria-label]="t('stageLabel')">
+    <!-- Prévia gravada: some com fade quando o avatar ao vivo aparece -->
+    <img
+      class="mocap-preview"
+      [class.is-hidden]="phase() === 'active'"
+      src="/mocap.gif"
+      [alt]="t('previewAlt')"
+      loading="lazy"
+      decoding="async">
 
-  <div class="controls-overlay" [class.active]="isStarted">
-    <button *ngIf="!isStarted" (click)="start()" class="btn-glass start">
-      LIGAR CÂMERA
-    </button>
-    <button *ngIf="isStarted" (click)="stop()" class="btn-glass stop">
-      PARAR CÂMERA
-    </button>
+    <!-- Sempre com tamanho: a biblioteca mede o contêiner ao iniciar -->
+    <div id="container" #container class="mocap-live" [class.is-visible]="phase() === 'active'" aria-hidden="true"></div>
+
+    <div class="mocap-scrim" [class.is-hidden]="phase() === 'active'" aria-hidden="true"></div>
+
+    <div class="mocap-overlay" [class.is-active]="phase() === 'active'">
+      @switch (phase()) {
+        @case ('starting') {
+          <div class="mocap-status" role="status">
+            <span class="mocap-spinner" aria-hidden="true"></span>
+            <span>{{ t('loading') }}</span>
+          </div>
+        }
+        @case ('error') {
+          <div class="mocap-status mocap-error" role="alert">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            <span>{{ errorText() }}</span>
+          </div>
+          <button type="button" class="mocap-btn" (click)="start()">
+            <i class="fa-solid fa-video" aria-hidden="true"></i>
+            {{ ct('retry') }}
+          </button>
+        }
+        @case ('active') {
+          <p class="mocap-hint">{{ t('hint') }}</p>
+          <button type="button" class="mocap-btn mocap-btn-stop" (click)="stop()">
+            <i class="fa-solid fa-stop" aria-hidden="true"></i>
+            {{ ct('stop') }}
+          </button>
+        }
+        @default {
+          <p class="mocap-cta">{{ t('cta') }}</p>
+          <button type="button" class="mocap-btn" (click)="start()">
+            <i class="fa-solid fa-video" aria-hidden="true"></i>
+            {{ ct('start') }}
+          </button>
+        }
+      }
+    </div>
   </div>
+
+  <p class="mocap-privacy">
+    <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+    <span>{{ ct('privacy') }}</span>
+  </p>
 </div>

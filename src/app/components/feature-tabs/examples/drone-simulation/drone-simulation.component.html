@@ -1,170 +1,123 @@
-<div class="w-full bg-white rounded-xl border border-slate-200 shadow-lg flex flex-col lg:flex-row overflow-hidden font-sans select-none">
-  
-  <!-- Simulation Viewport -->
-  <div class="relative w-full aspect-video lg:flex-1 bg-gradient-to-b from-blue-50 to-white overflow-hidden">
-    <!-- Stars/Grid -->
-    <div class="absolute inset-0 opacity-30 pointer-events-none" 
-         style="background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 50px 50px;">
-    </div>
+<div class="dr">
+  <div class="dr-grid">
+    <!-- Cena -->
+    <div class="dr-view" [attr.data-mode]="mode()" role="img" [attr.aria-label]="t('viewAria')">
+      <span class="dr-hud"><i></i>{{ statusLabel() }}</span>
 
-  <!-- Building Silhouette (House) -->
-  <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[40%] h-[50%] z-10 flex flex-col items-center justify-end pointer-events-none">
-    <!-- Roof -->
-    <div class="w-full h-[40%] relative drop-shadow-lg">
-        <div class="absolute inset-0 bg-slate-400" style="clip-path: polygon(50% 0%, 0% 100%, 100% 100%);"></div>
-    </div>
-    <!-- Body -->
-    <div class="w-[90%] h-[60%] bg-slate-200 border-x-4 border-slate-300 relative shadow-xl flex justify-center">
-        <!-- Windows -->
-        <div class="absolute top-8 left-8 w-[20%] h-[40%] bg-blue-200/40 border-4 border-slate-300 flex flex-col">
-            <div class="h-1/2 border-b-2 border-slate-300"></div>
-            <div class="absolute top-0 left-1/2 h-full border-l-2 border-slate-300 transform -translate-x-1/2"></div>
-        </div>
-        <div class="absolute top-8 right-8 w-[20%] h-[40%] bg-blue-200/40 border-4 border-slate-300 flex flex-col">
-            <div class="h-1/2 border-b-2 border-slate-300"></div>
-            <div class="absolute top-0 left-1/2 h-full border-l-2 border-slate-300 transform -translate-x-1/2"></div>
-        </div>
-        <!-- Door -->
-        <div class="absolute bottom-0 w-[25%] h-[55%] bg-slate-700 border-t-4 border-x-4 border-slate-300">
-            <div class="absolute top-1/2 right-2 w-2 h-2 bg-yellow-500 rounded-full"></div>
-        </div>
-    </div>
-  </div>
+      <!-- Palco em proporção fixa, ancorado embaixo: se sobrar altura, sobra céu -->
+      <div #view class="dr-stage">
+      <svg class="dr-scene" viewBox="0 0 160 100" preserveAspectRatio="none" aria-hidden="true">
+        <g class="dr-clouds">
+          <ellipse cx="34" cy="16" rx="13" ry="3.2" />
+          <ellipse cx="42" cy="13.5" rx="8" ry="3" />
+          <ellipse cx="122" cy="24" rx="15" ry="3.4" />
+          <ellipse cx="113" cy="21.5" rx="8" ry="2.8" />
+        </g>
+        <rect x="0" y="88" width="160" height="12" fill="#dfe6da" />
+        <rect x="0" y="88" width="160" height="0.6" fill="#c5cfbd" />
+        <!-- Árvore -->
+        <rect x="32.2" y="72" width="1.6" height="16" fill="#a8a29e" />
+        <ellipse cx="33" cy="66" rx="8.6" ry="8" fill="#b9cdb0" />
+        <!-- Casa -->
+        <rect x="56" y="58" width="48" height="30" fill="#e8edf3" stroke="#cbd5e1" stroke-width="0.6" />
+        <polygon points="80,38 48,59 112,59" fill="#94a3b8" />
+        <rect x="75" y="70" width="10" height="18" fill="#475569" />
+        <circle cx="83" cy="79.5" r="0.7" fill="#f99126" />
+        <g fill="#cfe1f5" stroke="#cbd5e1" stroke-width="0.6">
+          <rect x="61" y="64" width="9" height="10" />
+          <rect x="90" y="64" width="9" height="10" />
+        </g>
+      </svg>
 
-  <!-- LiDAR Points Layer -->
-  <svg class="absolute inset-0 w-full h-full z-20 pointer-events-none">
-    <circle *ngFor="let p of points" 
-            [attr.cx]="p.x + '%'" 
-            [attr.cy]="p.y + '%'" 
-            r="2" 
-            fill="#10051c" 
-            [attr.opacity]="p.opacity" />
-            
-    <!-- Scanning Beam (Only in LiDAR mode) -->
-    <path *ngIf="mode === 'lidar'"
-          [attr.d]="'M ' + drone.x + '% ' + (drone.y + 5) + '% L ' + (drone.x - 5) + '% 100% L ' + (drone.x + 5) + '% 100% Z'"
-          fill="url(#beamGradient)"
-          opacity="0.3" />
-          
-    <defs>
-      <linearGradient id="beamGradient" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#10051c" stop-opacity="0.5" />
-        <stop offset="100%" stop-color="#10051c" stop-opacity="0" />
-      </linearGradient>
-    </defs>
-  </svg>
+      <canvas #cloud class="dr-cloud" aria-hidden="true"></canvas>
 
-  <!-- Drone Object -->
-  <div class="absolute z-30 transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-100"
-       [style.left.%]="drone.x"
-       [style.top.%]="drone.y">
-    
-    <div class="relative">
-      <!-- Drone Body -->
-      <div class="w-16 h-4 bg-white border border-slate-200 rounded-full shadow-lg relative z-10"></div>
-      <!-- Rotors -->
-      <div class="absolute -top-2 -left-2 w-8 h-1 bg-slate-800 animate-spin-fast"></div>
-      <div class="absolute -top-2 -right-2 w-8 h-1 bg-slate-800 animate-spin-fast"></div>
-      
-      <!-- Camera/Sensor -->
-      <div class="absolute top-4 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-black rounded-full border-2 border-slate-300 flex items-center justify-center">
-        <div class="w-1 h-1 bg-red-500 rounded-full animate-pulse" *ngIf="mode === 'cinema'"></div>
-        <div class="w-1 h-1 bg-green-500 rounded-full" *ngIf="mode === 'lidar'"></div>
+      <!-- Drone: a posição vem do loop (transform), fora do Angular -->
+      <div #drone class="dr-drone" aria-hidden="true">
+        <div #body class="dr-body">
+          <span class="dr-rotor dr-rotor-l"></span>
+          <span class="dr-rotor dr-rotor-r"></span>
+          <span class="dr-arm"></span>
+          <span class="dr-hull"></span>
+          <span class="dr-cam"><i></i></span>
+        </div>
       </div>
-    </div>
-    
-    <!-- Label -->
-    <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-white/90 px-2 py-1 rounded text-xs text-slate-800 whitespace-nowrap border border-slate-200 shadow-md backdrop-blur-sm">
-      {{ mode === 'lidar' ? 'Escaneando...' : 'Gravando 4K' }}
-    </div>
-  </div>
-
-
-
-  <!-- Cinema Viewfinder (Overlay when in Cinema Mode) -->
-  <div *ngIf="mode === 'cinema'" class="absolute inset-0 pointer-events-none z-30 border-[40px] border-black/10 flex items-center justify-center">
-    <!-- Recording Indicator -->
-    <div class="absolute top-8 right-8 flex items-center gap-2 animate-pulse">
-      <div class="w-3 h-3 bg-red-500 rounded-full"></div>
-      <span class="text-red-500 font-mono font-bold">GRAV {{ formattedRecordingTime }}</span>
-    </div>
-    
-    <!-- Crosshair -->
-    <div class="w-8 h-8 border border-white/50 flex items-center justify-center">
-      <div class="w-1 h-1 bg-white/80 rounded-full"></div>
-    </div>
-    
-    <!-- Grid Lines -->
-    <div class="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-20">
-      <div class="border border-white/40"></div>
-      <div class="border border-white/40"></div>
-      <div class="border border-white/40"></div>
-      <div class="border border-white/40"></div>
-      <div class="border border-white/40"></div>
-      <div class="border border-white/40"></div>
-      <div class="border border-white/40"></div>
-      <div class="border border-white/40"></div>
-      <div class="border border-white/40"></div>
-    </div>
-  </div>
-
-  </div>
-
-  <!-- Controls Sidebar -->
-  <div class="w-full lg:w-80 bg-slate-50 p-6 border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col gap-6">
-    <!-- Mode Switcher -->
-    <div class="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex">
-      <button (click)="setMode('lidar', true)" 
-              class="flex-1 py-2 rounded-md flex items-center justify-center gap-2 transition-all text-sm font-medium"
-              [ngClass]="mode === 'lidar' ? 'bg-unrender-purple text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'">
-        <fa-icon [icon]="faMapMarkedAlt"></fa-icon>
-        <span>LiDAR</span>
-      </button>
-      <button (click)="setMode('cinema', true)" 
-              class="flex-1 py-2 rounded-md flex items-center justify-center gap-2 transition-all text-sm font-medium"
-              [ngClass]="mode === 'cinema' ? 'bg-red-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'">
-        <fa-icon [icon]="faVideo"></fa-icon>
-        <span>Cinema</span>
-      </button>
-    </div>
-
-    <!-- Telemetry -->
-    <div class="space-y-6">
-      <div class="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
-        <span class="text-slate-500 text-sm flex items-center gap-2"><fa-icon [icon]="faBatteryFull"></fa-icon> Bateria</span>
-        <span class="text-green-600 font-mono font-bold">{{ drone.battery }}%</span>
-      </div>
-      
-      <!-- Altitude Control -->
-      <div class="space-y-2">
-        <div class="flex justify-between items-center text-sm">
-          <span class="text-slate-500 flex items-center gap-2"><fa-icon [icon]="faPlane"></fa-icon> Altitude</span>
-          <span class="text-unrender-purple font-mono font-bold">{{ drone.altitude | number:'1.0-0' }}m</span>
-        </div>
-        <input type="range" min="10" max="100" [(ngModel)]="targetAltitude" 
-               class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-unrender-purple">
       </div>
 
-      <!-- Speed Control -->
-      <div class="space-y-2">
-        <div class="flex justify-between items-center text-sm">
-          <span class="text-slate-500 flex items-center gap-2"><fa-icon [icon]="faWind"></fa-icon> Velocidade</span>
-          <span class="text-slate-800 font-mono font-bold">{{ drone.speed | number:'1.0-0' }} m/s</span>
-        </div>
-        <input type="range" min="5" max="25" [(ngModel)]="targetSpeed" 
-               class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-400">
+      <!-- Visor do modo cinema: entra e sai por transição -->
+      <div class="dr-finder" [class.is-on]="mode() === 'cinema'" aria-hidden="true">
+        <span class="dr-bar dr-bar-t"></span>
+        <span class="dr-bar dr-bar-b"></span>
+        <span class="dr-corner dr-c1"></span>
+        <span class="dr-corner dr-c2"></span>
+        <span class="dr-corner dr-c3"></span>
+        <span class="dr-corner dr-c4"></span>
+        <span class="dr-rec"><i></i>REC {{ recLabel() }}</span>
       </div>
     </div>
-    
-    <!-- Instructions / Info -->
-    <div class="mt-auto p-4 bg-blue-50 rounded-lg border border-blue-100 text-xs text-blue-700 leading-relaxed">
-      <p *ngIf="mode === 'lidar'">
-        <strong>Modo LiDAR:</strong> O drone escaneia a estrutura gerando uma nuvem de pontos. Use os controles para ajustar a altitude de varredura.
-      </p>
-      <p *ngIf="mode === 'cinema'">
-        <strong>Modo Cinema:</strong> Estabilização de câmera ativada para capturas suaves em 4K. O drone mantém movimento fluido.
-      </p>
+
+    <!-- Painel -->
+    <div class="dr-panel">
+      <div class="dr-modes" role="group" [attr.aria-label]="t('modeGroup')">
+        <button type="button" [class.is-on]="mode() === 'lidar'" [attr.aria-pressed]="mode() === 'lidar'"
+          (click)="setMode('lidar')">
+          <fa-icon [icon]="faMapLocationDot"></fa-icon>
+          <span>{{ t('modeLidar') }}</span>
+        </button>
+        <button type="button" [class.is-on]="mode() === 'cinema'" [attr.aria-pressed]="mode() === 'cinema'"
+          (click)="setMode('cinema')">
+          <fa-icon [icon]="faVideo"></fa-icon>
+          <span>{{ t('modeCinema') }}</span>
+        </button>
+      </div>
+
+      <dl class="dr-stats">
+        <div>
+          <dt><fa-icon [icon]="faBattery"></fa-icon> {{ t('battery') }}</dt>
+          <dd>{{ i18n.number(battery() / 100, { style: 'percent' }) }}</dd>
+        </div>
+        <div>
+          <dt><fa-icon [icon]="faMountain"></fa-icon> {{ t('altitude') }}</dt>
+          <dd>{{ i18n.number(altitude(), { maximumFractionDigits: 0 }) }} m</dd>
+        </div>
+        <div>
+          <dt><fa-icon [icon]="faGaugeHigh"></fa-icon> {{ t('speed') }}</dt>
+          <dd>{{ i18n.number(speed(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }} m/s</dd>
+        </div>
+      </dl>
+
+      <!-- Progresso da varredura / tempo de gravação: mesma célula, troca por fade -->
+      <div class="dr-swap">
+        <div class="dr-scan" [class.is-on]="mode() === 'lidar'">
+          <div class="dr-scan-head">
+            <span>{{ t('scan') }} · {{ t('points', { n: i18n.number(pointCount()) }) }}</span>
+            <strong>{{ i18n.number(progress() / 100, { style: 'percent' }) }}</strong>
+          </div>
+          <div class="dr-meter"><i [style.transform]="'scaleX(' + progress() / 100 + ')'"></i></div>
+        </div>
+        <div class="dr-scan" [class.is-on]="mode() === 'cinema'">
+          <div class="dr-scan-head">
+            <span>{{ t('recTime') }} · 4K</span>
+            <strong class="dr-rec-time">{{ recLabel() }}</strong>
+          </div>
+          <div class="dr-meter dr-meter-rec"><i></i></div>
+        </div>
+      </div>
+
+      <label class="dr-slider">
+        <span><span>{{ t('altitude') }}</span><b>{{ targetAltitude() }} m</b></span>
+        <input type="range" min="10" max="100" step="1" [value]="targetAltitude()" (input)="onAltitude($event)"
+          [attr.aria-label]="t('altAria')" />
+      </label>
+      <label class="dr-slider">
+        <span><span>{{ t('speed') }}</span><b>{{ targetSpeed() }} m/s</b></span>
+        <input type="range" min="5" max="25" step="1" [value]="targetSpeed()" (input)="onSpeed($event)"
+          [attr.aria-label]="t('speedAria')" />
+      </label>
+
+      <div class="dr-swap dr-info">
+        <p [class.is-on]="mode() === 'lidar'"><strong>{{ t('infoLidarTitle') }}.</strong> {{ t('infoLidar') }}</p>
+        <p [class.is-on]="mode() === 'cinema'"><strong>{{ t('infoCinemaTitle') }}.</strong> {{ t('infoCinema') }}</p>
+      </div>
     </div>
   </div>
-
 </div>

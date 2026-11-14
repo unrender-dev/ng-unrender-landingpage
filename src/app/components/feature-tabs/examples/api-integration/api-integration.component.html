@@ -1,71 +1,68 @@
-<div class="integration-container">
-  <div class="network-viz">
-    <!-- Connection Lines (SVG Layer) -->
-    <svg class="connections-layer">
-      <g *ngFor="let node of integrations">
-        <!-- Static Line -->
-        <line x1="50%" y1="50%" [attr.x2]="node.x + '%'" [attr.y2]="node.y + '%'" 
-              class="connection-line" [class.active]="node.connected"></line>
-      </g>
-    </svg>
+<div class="api-wrap">
+  <div class="api-card" [class.is-paused]="paused()">
+    <div class="api-viz" role="group" [attr.aria-label]="t('vizLabel')">
+      <!-- Linhas e pulsos: viewBox 100×100 acompanha o quadrado do contêiner -->
+      <svg class="api-links" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        @for (node of integrations(); track node.id) {
+          <g class="api-link" [class.is-off]="!node.connected">
+            <line class="api-line-base" [attr.x1]="centerX" [attr.y1]="centerY" [attr.x2]="node.x" [attr.y2]="node.y" />
+            <line class="api-line-live" [attr.x1]="centerX" [attr.y1]="centerY" [attr.x2]="node.x" [attr.y2]="node.y" />
+            <g
+              class="api-flow"
+              [style.--dx]="node.x - centerX"
+              [style.--dy]="node.y - centerY"
+              [style.--delay]="node.delay">
+              <circle class="api-packet api-packet-out" [attr.cx]="centerX" [attr.cy]="centerY" r="1.3" />
+              <circle class="api-packet api-packet-in" [attr.cx]="centerX" [attr.cy]="centerY" r="1.3" />
+            </g>
+          </g>
+        }
+      </svg>
 
-    <!-- Data Packets Layer (CSS Animation) -->
-    <div class="packets-layer">
-      <ng-container *ngFor="let node of integrations">
-        <div *ngIf="node.syncing" 
-             class="data-packet"
-             [style.left.%]="50" 
-             [style.top.%]="50"
-             [style.--target-x.%]="node.x"
-             [style.--target-y.%]="node.y">
-        </div>
-        <div *ngIf="node.syncing" 
-             class="data-packet incoming"
-             [style.left.%]="node.x" 
-             [style.top.%]="node.y"
-             [style.--target-x.%]="50"
-             [style.--target-y.%]="50">
-        </div>
-      </ng-container>
+      <div class="api-hub" [style.left.%]="centerX" [style.top.%]="centerY">
+        <span class="api-hub-pulse" aria-hidden="true"></span>
+        <span class="api-hub-pulse api-hub-pulse-late" aria-hidden="true"></span>
+        <span class="api-hub-core" aria-hidden="true"><fa-icon [icon]="faPlug"></fa-icon></span>
+        <span class="api-hub-label">{{ t('hub') }}</span>
+      </div>
+
+      @for (node of integrations(); track node.id) {
+        <button
+          type="button"
+          class="api-node"
+          [class.is-off]="!node.connected"
+          [class.is-burst]="node.burst"
+          [style.left.%]="node.x"
+          [style.top.%]="node.y"
+          [attr.aria-pressed]="node.connected"
+          [attr.aria-label]="ariaLabel(node)"
+          (click)="toggleConnection(node)">
+          <span class="api-node-icon">
+            <fa-icon [icon]="node.icon" aria-hidden="true"></fa-icon>
+            <span class="api-node-dot" aria-hidden="true"></span>
+          </span>
+          <span class="api-node-label"><span>{{ label(node) }}</span></span>
+        </button>
+      }
     </div>
 
-    <!-- Central Hub -->
-    <div class="central-hub">
-      <div class="hub-core">
-        <fa-icon [icon]="faPlug"></fa-icon>
-      </div>
-      <div class="hub-pulse"></div>
-      <div class="hub-label">API Gateway</div>
-    </div>
+    <div class="api-info">
+      <span class="api-demo">{{ t('demoNote') }}</span>
+      <h3>{{ t('title') }}</h3>
+      <p>{{ t('text') }}</p>
 
-    <!-- Integration Nodes -->
-    <div *ngFor="let node of integrations" 
-         class="node-item" 
-         [style.left.%]="node.x" 
-         [style.top.%]="node.y"
-         [class.syncing]="node.syncing"
-         [class.disconnected]="!node.connected"
-         (click)="toggleConnection(node)"
-         title="Click to toggle connection">
-      
-      <div class="node-icon" [style.color]="node.connected ? node.color : '#94a3b8'" [style.border-color]="node.connected ? node.color : 'transparent'">
-        <fa-icon [icon]="node.icon"></fa-icon>
+      <div class="api-status">
+        <span class="api-status-dot" aria-hidden="true"></span>
+        {{ t('activeCount', { n: activeCount(), total: integrations().length }) }}
       </div>
-      
-      <div class="status-indicator" [class.connected]="node.connected">
-        <fa-icon [icon]="node.connected ? faCheckCircle : faTimesCircle"></fa-icon>
-      </div>
-    </div>
-  </div>
 
-  <div class="info-panel">
-    <h3>Integrações Ilimitadas</h3>
-    <p>Conecte seu sistema a qualquer serviço do mercado. Clique nos ícones para ativar/desativar integrações.</p>
-    <div class="tags">
-      <span class="tag">REST API</span>
-      <span class="tag">GraphQL</span>
-      <span class="tag">Webhooks</span>
-      <span class="tag">WebSocket</span>
+      <ul class="api-tags" [attr.aria-label]="t('protocols')">
+        @for (p of protocols; track p) {
+          <li>{{ p }}</li>
+        }
+      </ul>
+
+      <p class="api-hint">{{ t('hint') }}</p>
     </div>
   </div>
 </div>
