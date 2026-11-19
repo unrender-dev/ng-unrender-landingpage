@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { UnrenderGamesShowcaseComponent } from './unrender-games-showcase.component';
 import { ProdutosPosModalService } from '../../../../services/produtos-pos-modal.service';
 import { I18nService } from '../../../../i18n/i18n.service';
@@ -9,84 +10,68 @@ describe('UnrenderGamesShowcaseComponent', () => {
   let mockPosModal: jasmine.SpyObj<ProdutosPosModalService>;
 
   beforeEach(async () => {
-    mockPosModal = jasmine.createSpyObj('ProdutosPosModalService', ['abrirPedido', 'abrirDetalhe']);
-    // A sondagem de rede não deve sair do teste.
-    spyOn(window, 'fetch').and.returnValue(new Promise<Response>(() => {}));
+    mockPosModal = jasmine.createSpyObj('ProdutosPosModalService', ['abrirPedido', 'abrirDetalhe', 'produtoPorId']);
+    (mockPosModal as any).whatsappBase = signal('https://wa.me/5565999207154');
+    mockPosModal.produtoPorId.and.callFake((id: string) =>
+      id === 'totem-interativo-55' ? ({ id, priceSale: 'R$ 3.499', priceRent: 'R$ 329 / mês', image: '/x.svg' } as any) : undefined,
+    );
 
     await TestBed.configureTestingModule({
       imports: [UnrenderGamesShowcaseComponent],
       providers: [{ provide: ProdutosPosModalService, useValue: mockPosModal }],
     }).compileComponents();
 
-    // Os textos conferidos abaixo são os em português.
     TestBed.inject(I18nService).set('pt');
-
     fixture = TestBed.createComponent(UnrenderGamesShowcaseComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
 
-  it('should create the showcase component', () => {
-    expect(component).toBeTruthy();
+  afterEach(() => component.ngOnDestroy());
+
+  it('renderiza os quatro jogos sem depender de site externo', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('.ugs-game-tab').length).toBe(4);
+    expect(el.querySelector('iframe')).toBeNull();
+    expect(el.textContent).not.toContain('unrender.games');
   });
 
-  it('should have gamificacao as default active path', () => {
-    expect(component.activePath).toBe('/gamificacao/');
-    expect(component.currentFullUrl).toContain('/gamificacao/');
-  });
-
-  it('should always point to the public unrender.games site', () => {
-    expect(component.currentFullUrl).toBe('https://unrender.games/gamificacao/');
-    const text = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(text).not.toContain('5174');
-    expect(text).not.toContain('localhost');
-  });
-
-  it('should render page tabs including gamificacao and loja', () => {
-    const compiled = fixture.nativeElement as HTMLElement;
-    const tabButtons = compiled.querySelectorAll('.ugs-tab');
-    expect(tabButtons.length).toBe(3);
-
-    const text = compiled.textContent || '';
-    expect(text).toContain('Gamificação e totens 3D');
-    expect(text).toContain('Loja de totens e hardware');
-    expect(text).toContain('Home da Unrender Games');
-  });
-
-  it('should translate the page tabs when the language changes', () => {
-    TestBed.inject(I18nService).set('en');
+  it('troca de jogo pela aba', () => {
+    component.selectGame('memory');
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Kiosk & hardware store');
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.mem-card').length).toBe(12);
   });
 
-  it('should switch routes when clicking a page tab', () => {
-    component.selectRoute('/loja/');
+  it('quiz soma pontos na resposta certa e abre a captação de lead no fim', () => {
+    component.selectGame('quiz');
+    for (let i = 0; i < component.quiz.length; i++) {
+      component.answer(component.qCurrent().correct);
+      component.nextQuestion();
+    }
+    expect(component.qHits()).toBe(component.quiz.length);
+    expect(component.qDone()).toBeTrue();
+    expect(component.leadState()).toBe('form');
+  });
+
+  it('formulário de lead só confirma com nome e consentimento, sem rede', () => {
+    component.revealScratch();
+    const ev = new Event('submit');
+    component.submitLead(ev);
+    expect(component.leadError()).toBeTrue();
+    component.leadName.set('Teste');
+    component.leadConsent.set(true);
+    component.submitLead(new Event('submit'));
+    expect(component.leadState()).toBe('done');
+  });
+
+  it('usa o preço do catálogo quando o totem existe e pede orçamento quando não existe', () => {
+    const [comCatalogo, , semCatalogo] = component.totemHighlights;
+    expect(component.saleLabel(comCatalogo)).toBe('R$ 3.499');
+    expect(component.saleLabel(semCatalogo)).toContain('2.899');
     fixture.detectChanges();
-
-    expect(component.activePath).toBe('/loja/');
-    expect(component.currentFullUrl).toBe('https://unrender.games/loja/');
-  });
-
-  it('should enter the loading state when reloadIframe is called and settle on frame load', () => {
-    component.reloadIframe();
-    expect(component.isReloading).toBeTrue();
-
-    component.onFrameLoad();
-    expect(component.isReloading).toBeFalse();
-    expect(component.status()).toBe('ready');
-    component.ngOnDestroy();
-  });
-
-  it('should display totem highlight cards with quick order action', () => {
-    const compiled = fixture.nativeElement as HTMLElement;
-    const cards = compiled.querySelectorAll('.totem-card');
-    expect(cards.length).toBe(3);
-
-    const firstCardTitle = cards[0].querySelector('h5')?.textContent;
-    expect(firstCardTitle).toContain('Totem interativo Slim 55"');
-
-    const orderBtn = cards[0].querySelector('.btn-order') as HTMLButtonElement;
-    orderBtn.click();
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('.totem-card');
+    (cards[0].querySelector('.btn-order') as HTMLButtonElement).click();
     expect(mockPosModal.abrirPedido).toHaveBeenCalledWith('totem-interativo-55');
+    expect(cards[2].querySelector('a.btn-order')?.getAttribute('href')).toContain('wa.me');
   });
 });

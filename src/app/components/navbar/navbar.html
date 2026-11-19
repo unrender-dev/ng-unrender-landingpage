@@ -2,14 +2,14 @@
   [ngClass]="{ 'bg-white shadow-lg': isScrolled || isMobileMenuOpen, 'backdrop-blur-sm': !isScrolled && !isMobileMenuOpen }">
   <div class="container mx-auto px-4">
     <div class="flex items-center justify-between h-16 lg:h-20">
-      <a class="flex items-center space-x-2 text-xl font-bold transition-transform duration-300 hover:scale-105"
+      <a class="brand flex items-center space-x-2 text-xl font-bold transition-transform duration-300 hover:scale-105"
         routerLink="/inicio" (click)="handleNavigation($event, '/inicio')"
         [ngClass]="solid ? 'text-gray-900' : 'text-white'">
-        <img class="w-10 h-10 object-contain" src="unrender-logo-small.png" alt="" width="40" height="40" />
-        <span>UNRENDER</span>
+        <img class="brand__logo w-10 h-10 object-contain" src="unrender-logo-small.png" alt="" width="40" height="40" />
+        <span class="brand__name">UNRENDER</span>
       </a>
 
-      <div class="flex items-center gap-1 lg:gap-8">
+      <div class="flex shrink-0 items-center gap-1 lg:gap-8">
         <div class="hidden lg:flex lg:items-center">
         <ul class="flex items-center space-x-8">
           @for (link of links; track link.key) {

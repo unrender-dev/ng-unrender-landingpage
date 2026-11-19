@@ -24,6 +24,8 @@ export interface Feature {
   image?: string;
   /** screen: texto da barra de endereço da moldura. */
   address?: string;
+  /** photo: imagem de baixa resolução, exibida pequena (tamanho nativo) ao lado da legenda. */
+  small?: boolean;
   /** topic: classe Font Awesome. */
   icon?: string;
   /** product: id do produto na loja (abre ficha/pedido no modal). */
@@ -85,32 +87,50 @@ const productivity = () =>
   import('./examples/employee-monitoring/employee-monitoring.component').then((m) => m.EmployeeMonitoringComponent);
 const lab = () => import('./examples/hardware-showcase/hardware-showcase.component').then((m) => m.HardwareShowcaseComponent);
 const drone = () => import('./examples/drone-simulation/drone-simulation.component').then((m) => m.DroneSimulationComponent);
+const touchless = () => import('../touchless-game/touchless-game.component').then((m) => m.TouchlessGameComponent);
 
 // ── Produtos da loja reutilizados em mais de um item ──────────────────────────
+// Foto, preço e locação aqui são só o fallback: com o SGA no ar, valem os do catálogo
+// da unidade (preço da loja de origem + margem configurada no SGA).
 const P_THERMAL_80: Feature = {
-  key: 'pThermal80', kind: 'product', image: `${PRODUTOS}/pos-impressora-termica-80mm.svg`,
-  posProductId: 'impressora-termica-80mm', price: 696, rent: 89,
+  key: 'pThermal80', kind: 'product', image: 'https://images.kabum.com.br/produtos/fotos/sync_mirakl/468534/Impressora-N-o-Fiscal-T-rmica-Elgin-I8-Full-203dpi-Ethernet-USB-E-Serial-Com-Guilhotina_1686163696_g.jpg',
+  posProductId: 'impressora-termica-80mm', price: 912, rent: 119,
 };
 const P_BLUETOOTH: Feature = {
-  key: 'pBluetooth', kind: 'product', image: `${PRODUTOS}/pos-impressora-bluetooth-58mm.svg`,
-  posProductId: 'impressora-bluetooth-58mm', price: 288, rent: 49,
+  key: 'pBluetooth', kind: 'product', image: 'https://images.kabum.com.br/produtos/fotos/sync_mirakl/562609/Mini-Impressora-T-rmica-Port-til-Bluetooth-58mm_1717700035_g.jpg',
+  posProductId: 'impressora-bluetooth-58mm', price: 466, rent: 59,
 };
 const P_CASH_DRAWER: Feature = {
-  key: 'pCashDrawer', kind: 'product', image: `${PRODUTOS}/pos-caixa-registradora-usb.svg`,
-  posProductId: 'caixa-registradora-usb', price: 384, rent: 59,
+  key: 'pCashDrawer', kind: 'product', image: 'https://images.kabum.com.br/produtos/fotos/sync_mirakl/173563/large/Gaveta-de-Dinheiro-Autom-tica-Bematech-GD-56-RJ12-5-nichos-Para-C-dulas-e-6-nichos-para-Moedas_1790827420.jpg',
+  posProductId: 'caixa-registradora-usb', price: 546, rent: 69,
 };
 const P_PC_KIT: Feature = {
-  key: 'pPcKit', kind: 'product', image: `${PRODUTOS}/pos-kit-pc-caixa.svg`,
-  posProductId: 'kit-pc-caixa-completo', price: 2268, rent: 249,
+  key: 'pPcKit', kind: 'product', image: 'https://images.kabum.com.br/produtos/fotos/sync_mirakl/938903/large/Computador-Completo-Tob-Intel-Core-i5-Com-SSD-120GB-Mem-ria-8GB-WINDOWS-10-Pro-Trial-Teclado-E-Mouse-Monitor-19-Desktop_1770930015.jpg',
+  posProductId: 'kit-pc-caixa-completo', price: 1213, rent: 159,
 };
 const P_HEADSETS: Feature = {
-  key: 'pHeadsets', kind: 'product', image: `${PRODUTOS}/pos-kit-headsets-boost.svg`,
-  posProductId: 'kit-headsets-boost-usb', price: 672, rent: 85,
+  key: 'pHeadsets', kind: 'product', image: 'https://images.kabum.com.br/produtos/fotos/sync_mirakl/122746/large/Headset-Biauricular-Chs-60B-Usb_1794605918.jpg',
+  posProductId: 'kit-headsets-boost-usb', price: 370, rent: 49,
 };
 const P_TURNKEY: Feature = {
-  key: 'pTurnkey', kind: 'product', image: `${PRODUTOS}/pos-kit-turnkey-completo.svg`,
-  posProductId: 'estacao-pdv-turnkey-completa', price: 3228, rent: 329,
+  key: 'pTurnkey', kind: 'product', image: 'https://images.kabum.com.br/produtos/fotos/sync_mirakl/684884/large/Kit-Automa-o-Pdv-Tob-Intel-I5-4-g-8GB-SSD-240GB-Win10-Rede-S-fio-Teclado-Mouse-Gaveta-Dinheiro-Impressora-T-rmica-Leitor-C-digo-De-Barras_1760704459.jpg',
+  posProductId: 'estacao-pdv-turnkey-completa', price: 2076, rent: 259,
 };
+const P_EVENT_TOTEM: Feature = {
+  key: 'pEventTotem', kind: 'product', image: '/features/totem2.jpg',
+  posProductId: 'totem-interativo-55', price: 3199, rent: 299, installments: 12,
+};
+const P_PHOTO_TOTEM: Feature = {
+  key: 'pPhotoTotem', kind: 'product', image: '/features/unrender-games/totem-virtual-tryon.jpg',
+  posProductId: 'totem-foto-polaroid', price: 3199, rent: 299, installments: 12,
+};
+
+// ── Games, 3D e totens: o jogo jogável com a câmera e as demos de câmera com IA ──
+const F_TOUCHLESS: Feature = { key: 'touchlessGame', kind: 'component', loadComponent: touchless };
+const F_FACE: Feature = { key: 'faceCapture', kind: 'component', loadComponent: mocap };
+const F_OBJECTS: Feature = { key: 'objectAi', kind: 'component', loadComponent: vision };
+const F_ACTIVATION: Feature = { key: 'eventActivation', kind: 'topic', icon: 'fa-solid fa-bullhorn' };
+const F_GESTURES: Feature = { key: 'gestureGames', kind: 'topic', icon: 'fa-solid fa-hand-sparkles' };
 
 export const DEVELOPMENT_ITEMS: MenuItem[] = [
   {
@@ -179,15 +199,23 @@ export const DEVELOPMENT_ITEMS: MenuItem[] = [
       { key: 'kiosk', kind: 'component', loadComponent: kiosk },
       { key: 'meetings', kind: 'component', loadComponent: responsive },
       { key: 'gamesPages', kind: 'component', loadComponent: gamesPages },
-      {
-        key: 'pEventTotem', kind: 'product', image: '/features/totem2.jpg',
-        posProductId: 'totem-interativo-55', price: 3199, rent: 299, installments: 12,
-      },
-      {
-        key: 'pPhotoTotem', kind: 'product', image: '/features/unrender-games/totem-virtual-tryon.jpg',
-        posProductId: 'totem-foto-polaroid', price: 3199, rent: 299, installments: 12,
-      },
+      P_EVENT_TOTEM,
+      P_PHOTO_TOTEM,
       { key: 'ctrlbCustom', kind: 'component', loadComponent: ctrlb, inputs: { focus: 'custom' } },
+    ],
+  },
+  {
+    id: 'event-games',
+    features: [
+      F_TOUCHLESS,
+      F_ACTIVATION,
+      F_FACE,
+      F_OBJECTS,
+      F_GESTURES,
+      { key: 'gamesPages', kind: 'component', loadComponent: gamesPages },
+      { key: 'webgl3d', kind: 'component', loadComponent: webgl },
+      P_EVENT_TOTEM,
+      P_PHOTO_TOTEM,
     ],
   },
 ];
@@ -264,17 +292,36 @@ export const INFRASTRUCTURE_ITEMS: MenuItem[] = [
       { key: 'photoTotem', kind: 'photo', image: '/features/unrender-games/totem-virtual-tryon.jpg' },
     ],
   },
+  {
+    id: 'event-totems',
+    features: [
+      F_TOUCHLESS,
+      P_EVENT_TOTEM,
+      P_PHOTO_TOTEM,
+      { key: 'cameraTotem', kind: 'topic', icon: 'fa-solid fa-camera' },
+      F_FACE,
+      F_OBJECTS,
+      { key: 'touchTotem', kind: 'photo', image: '/features/totem2.jpg' },
+      { key: 'ledWall', kind: 'topic', icon: 'fa-solid fa-tv' },
+      { key: 'eventRental', kind: 'topic', icon: 'fa-solid fa-truck-ramp-box' },
+    ],
+  },
 ];
 
 export const DESIGN_ITEMS: MenuItem[] = [
   {
     id: 'unrender-games',
     features: [
+      F_TOUCHLESS,
       { key: 'gamesPages', kind: 'component', loadComponent: gamesPages },
+      F_ACTIVATION,
+      F_FACE,
+      F_OBJECTS,
+      F_GESTURES,
       { key: 'gameDev', kind: 'topic', icon: 'fa-solid fa-gamepad' },
-      { key: 'showroom', kind: 'photo', image: '/showroom.jpg' },
+      { key: 'showroom', kind: 'photo', image: '/showroom.jpg', small: true },
       { key: 'modeling', kind: 'topic', icon: 'fa-solid fa-cube' },
-      { key: 'vr', kind: 'photo', image: '/game.jpg' },
+      { key: 'vr', kind: 'photo', image: '/game.jpg', small: true },
       { key: 'ar', kind: 'topic', icon: 'fa-solid fa-camera-rotate' },
     ],
   },

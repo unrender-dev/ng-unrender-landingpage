@@ -1,50 +1,13 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, ViewChild, computed, effect, inject, untracked } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { I18nService } from '../../../../i18n/i18n.service';
-import { I18N, SCENARIO_TEXT } from './whatsapp-ai-demo.i18n';
+import { I18N, LANG_INDEX, SCENARIOS } from './whatsapp-ai-demo.i18n';
 
 interface Card { icon: string; title: string; lines: string[]; }
 interface Msg { id: string; from: 'client' | 'ai'; text: string; card?: Card; }
 interface Action { icon: string; color: string; text: string; module: string; }
 interface Step { msg: Msg; action?: Action; }
 interface Scenario { id: string; label: string; icon: string; business: string; avatar: string; steps: Step[]; actions: Action[]; }
-
-interface StepShape { from: 'client' | 'ai'; card?: string; action?: { icon: string; color: string }; }
-interface ScenarioShape { id: string; icon: string; avatar: string; steps: StepShape[]; }
-
-/** Parte que não depende de idioma: quem fala, ícones e cores. Os textos vêm do arquivo de i18n. */
-const SHAPES: ScenarioShape[] = [
-  {
-    id: 'academia', icon: 'fa-solid fa-dumbbell', avatar: 'FT',
-    steps: [
-      { from: 'client', action: { icon: 'fa-solid fa-user-plus', color: '#6366f1' } },
-      { from: 'ai' },
-      { from: 'client' },
-      { from: 'ai', card: 'fa-regular fa-calendar-check', action: { icon: 'fa-regular fa-calendar-check', color: '#f99126' } },
-      { from: 'ai', action: { icon: 'fa-solid fa-bell', color: '#22c55e' } },
-    ],
-  },
-  {
-    id: 'clinica', icon: 'fa-solid fa-tooth', avatar: 'CS',
-    steps: [
-      { from: 'client', action: { icon: 'fa-solid fa-id-card', color: '#6366f1' } },
-      { from: 'ai' },
-      { from: 'client' },
-      { from: 'ai', card: 'fa-solid fa-tooth', action: { icon: 'fa-regular fa-calendar-check', color: '#f99126' } },
-      { from: 'ai', action: { icon: 'fa-solid fa-robot', color: '#22c55e' } },
-    ],
-  },
-  {
-    id: 'restaurante', icon: 'fa-solid fa-utensils', avatar: 'BV',
-    steps: [
-      { from: 'client', action: { icon: 'fa-solid fa-receipt', color: '#6366f1' } },
-      { from: 'ai' },
-      { from: 'client' },
-      { from: 'ai', card: 'fa-solid fa-motorcycle', action: { icon: 'fa-solid fa-fire-burner', color: '#f99126' } },
-      { from: 'ai', action: { icon: 'fa-solid fa-boxes-stacked', color: '#22c55e' } },
-    ],
-  },
-];
 
 interface QueueStep { wait: number; run: () => void; }
 
@@ -100,12 +63,26 @@ const FADE_MS = 380;
 
     <!-- bastidores -->
     <div class="backstage rounded-2xl p-4 md:p-5 min-w-0">
-      <div class="flex flex-wrap gap-2 mb-4" role="group" [attr.aria-label]="t('scenarios')">
-        @for (s of scenarios(); track s.id; let i = $index) {
-        <button type="button" class="tab" [class.on]="i === tab" [attr.aria-pressed]="i === tab" (click)="play(i)">
-          <i [class]="s.icon" aria-hidden="true"></i> {{ s.label }}
+      <div class="strip-head">
+        <span class="strip-title">{{ t('scenarios') }}</span>
+        <span class="strip-pos">{{ t('position', { n: tab + 1, total: scenarios().length }) }}</span>
+      </div>
+      <div class="strip-wrap" [class.fade-l]="canPrev" [class.fade-r]="canNext">
+        <button type="button" class="nav" (click)="page(-1)" [disabled]="!canPrev" [attr.aria-label]="t('prev')" [title]="t('prev')">
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
         </button>
-        }
+        <div class="strip" #strip role="group" [attr.aria-label]="t('scenarios')"
+             (scroll)="onStripScroll()" (pointerenter)="overStrip = true" (pointerleave)="overStrip = false"
+             (pointerdown)="dragStart($event)" (pointermove)="dragMove($event)" (pointerup)="dragEnd()" (pointercancel)="dragEnd()">
+          @for (s of scenarios(); track s.id; let i = $index) {
+          <button type="button" class="tab" [class.on]="i === tab" [attr.aria-pressed]="i === tab" [attr.data-i]="i" (click)="pick(i)">
+            <i [class]="s.icon" aria-hidden="true"></i> {{ s.label }}
+          </button>
+          }
+        </div>
+        <button type="button" class="nav" (click)="page(1)" [disabled]="!canNext" [attr.aria-label]="t('next')" [title]="t('next')">
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
       </div>
 
       <div class="flex items-center gap-2 mb-1">
@@ -170,12 +147,29 @@ const FADE_MS = 380;
     .mic { width:36px; height:36px; border-radius:50%; background:#00a884; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
 
     .backstage { background: radial-gradient(130% 120% at 100% 0%, #2a1146 0%, #10051c 60%); border:1px solid rgba(249,145,38,.25); }
-    .tab { display:inline-flex; align-items:center; gap:6px; min-height: 36px; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.7); background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); transition: color .2s, background-color .2s, border-color .2s, transform .15s; }
+    .strip-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .strip-title { font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#f99126; }
+    .strip-pos { font-size:11px; color: rgba(255,255,255,.55); font-variant-numeric: tabular-nums; white-space:nowrap; }
+    .strip-wrap { position:relative; display:flex; align-items:center; gap:6px; margin-bottom:16px; min-width:0; }
+    .strip { position:relative; flex:1; min-width:0; display:flex; gap:8px; overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none; overscroll-behavior-x: contain;
+      padding: 3px 2px; cursor: grab; }
+    .strip::-webkit-scrollbar { display:none; }
+    .strip.dragging { cursor: grabbing; scroll-snap-type: none; }
+    .fade-l .strip { -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px); mask-image: linear-gradient(90deg, transparent, #000 28px); }
+    .fade-r .strip { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+    .fade-l.fade-r .strip { -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
+    .nav { flex-shrink:0; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff;
+      background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); transition: background-color .2s, border-color .2s, opacity .2s, transform .15s; }
+    .nav:hover:not(:disabled) { background: rgba(249,145,38,.25); border-color: rgba(249,145,38,.5); }
+    .nav:active:not(:disabled) { transform: scale(.92); }
+    .nav:disabled { opacity:.3; cursor:default; }
+    .nav:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    .tab { flex-shrink:0; scroll-snap-align:center; white-space:nowrap; user-select:none; display:inline-flex; align-items:center; gap:6px; min-height: 36px; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.7); background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); transition: color .2s, background-color .2s, border-color .2s, transform .15s; }
     .tab:hover { color:#fff; background: rgba(255,255,255,.12); }
     .tab:active { transform: scale(.96); }
     .tab.on { background:#f99126; color:#10051c; border-color:#f99126; }
     .tab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-    @media (pointer: coarse) { .tab { min-height: 44px; } }
+    @media (pointer: coarse) { .tab { min-height: 44px; } .nav { width: 44px; height: 44px; } .strip { cursor: auto; } }
     .actions { display:flex; flex-direction:column; gap:8px; }
     .action { display:flex; align-items:center; gap:10px; min-height: 54px; padding:10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.07); transition: opacity .4s ease; }
     .action.ghost { opacity:.35; }
@@ -194,11 +188,13 @@ const FADE_MS = 380;
       .bubble, .a-in, .a-pop, .sk, .typing-b span { animation: none; }
       .chat-inner, .actions, .who, .action { transition: none; }
       .chat { scroll-behavior: auto; }
+      .nav, .tab { transition: none; }
     }
   `],
 })
 export class WhatsappAiDemoComponent implements AfterViewInit, OnDestroy {
   @ViewChild('chat') chat?: ElementRef<HTMLElement>;
+  @ViewChild('strip') strip?: ElementRef<HTMLElement>;
 
   private readonly i18n = inject(I18nService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -208,17 +204,19 @@ export class WhatsappAiDemoComponent implements AfterViewInit, OnDestroy {
 
   /** Cenários montados no idioma atual (esqueleto + textos). */
   readonly scenarios = computed<Scenario[]>(() => {
-    const texts = this.i18n.pick(SCENARIO_TEXT)(v => this.i18n.money(v));
-    return SHAPES.map((shape, si) => {
-      const tx = texts[si];
-      const steps: Step[] = shape.steps.map((st, i) => {
-        const s = tx.steps[i];
-        return {
-          msg: { id: `${shape.id}-${i}`, from: st.from, text: s.text, card: st.card && s.card ? { icon: st.card, ...s.card } : undefined },
-          action: st.action && s.action ? { ...st.action, ...s.action } : undefined,
-        };
-      });
-      return { id: shape.id, icon: shape.icon, avatar: shape.avatar, label: tx.label, business: tx.business, steps, actions: steps.filter(s => s.action).map(s => s.action!) };
+    const li = LANG_INDEX[this.i18n.lang()] ?? 0;
+    return SCENARIOS(v => this.i18n.money(v)).map(def => {
+      const steps: Step[] = def.steps.map((st, i) => ({
+        msg: {
+          id: `${def.id}-${i}`, from: st.from, text: st.text[li],
+          card: st.card ? { icon: st.card.icon, title: st.card.title[li], lines: st.card.lines.map(l => l[li]) } : undefined,
+        },
+        action: st.action ? { icon: st.action.icon, color: st.action.color, text: st.action.text[li], module: st.action.module[li] } : undefined,
+      }));
+      return {
+        id: def.id, icon: def.icon, avatar: def.avatar, label: def.label[li], business: def.business[li],
+        steps, actions: steps.filter(s => s.action).map(s => s.action!),
+      };
     });
   });
 
@@ -230,6 +228,12 @@ export class WhatsappAiDemoComponent implements AfterViewInit, OnDestroy {
   done = 0;
   typing = false;
   leaving = false;
+  canPrev = false;
+  canNext = true;
+  overStrip = false;
+  private drag: { x: number; left: number; moved: boolean; id: number } | null = null;
+  private dragged = false;
+  private ro?: ResizeObserver;
 
   private responseTime = 2;
   private readonly startedAt = new Date();
@@ -258,6 +262,11 @@ export class WhatsappAiDemoComponent implements AfterViewInit, OnDestroy {
   responseLabel(): string { return this.i18n.number(this.responseTime, { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
 
   ngAfterViewInit(): void {
+    this.onStripScroll();
+    if (typeof ResizeObserver !== 'undefined' && this.strip) {
+      this.ro = new ResizeObserver(() => this.zone.run(() => this.onStripScroll()));
+      this.ro.observe(this.strip.nativeElement);
+    }
     if (typeof IntersectionObserver === 'undefined') { this.visible = true; this.begin(); return; }
     this.observer = new IntersectionObserver(es => {
       const v = es.some(e => e.isIntersecting);
@@ -277,11 +286,13 @@ export class WhatsappAiDemoComponent implements AfterViewInit, OnDestroy {
     clearTimeout(this.swapTimer);
     clearTimeout(this.scrollTimer);
     this.observer?.disconnect();
+    this.ro?.disconnect();
   }
 
   play(i: number) {
     this.started = true;
     this.tab = i;
+    this.revealTab(i);
     clearTimeout(this.timer);
     clearTimeout(this.swapTimer);
     this.queue = [];
@@ -317,6 +328,67 @@ export class WhatsappAiDemoComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /** Atualiza setas e sombras conforme a faixa de setores ainda pode rolar para cada lado. */
+  onStripScroll() {
+    const el = this.strip?.nativeElement;
+    if (!el) return;
+    const prev = el.scrollLeft > 4;
+    const next = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    if (prev !== this.canPrev || next !== this.canNext) { this.canPrev = prev; this.canNext = next; this.cdr.markForCheck(); }
+  }
+
+  /** Setas: rola quase uma "página" da faixa. */
+  page(dir: 1 | -1) {
+    const el = this.strip?.nativeElement;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: this.reduced ? 'auto' : 'smooth' });
+  }
+
+  /**
+   * Centraliza a aba do setor na faixa rolando só a faixa (scrollTo no container),
+   * nunca a página. Se a pessoa está com o ponteiro sobre a faixa, não mexe nela.
+   */
+  private revealTab(i: number) {
+    const el = this.strip?.nativeElement;
+    const btn = el?.querySelector<HTMLElement>(`[data-i="${i}"]`);
+    if (!el || !btn || this.overStrip || this.drag) return;
+    const left = btn.offsetLeft - (el.clientWidth - btn.offsetWidth) / 2;
+    el.scrollTo({ left: Math.max(0, left), behavior: this.reduced ? 'auto' : 'smooth' });
+  }
+
+  /** Arrastar a faixa com o mouse (no toque, a rolagem nativa já resolve). */
+  dragStart(e: PointerEvent) {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    const el = this.strip?.nativeElement;
+    if (!el) return;
+    this.drag = { x: e.clientX, left: el.scrollLeft, moved: false, id: e.pointerId };
+    this.dragged = false;
+  }
+
+  dragMove(e: PointerEvent) {
+    const el = this.strip?.nativeElement;
+    if (!this.drag || !el || e.pointerId !== this.drag.id) return;
+    const dx = e.clientX - this.drag.x;
+    if (!this.drag.moved && Math.abs(dx) > 5) {
+      this.drag.moved = true;
+      el.classList.add('dragging');
+      el.setPointerCapture(e.pointerId);
+    }
+    if (this.drag.moved) el.scrollLeft = this.drag.left - dx;
+  }
+
+  dragEnd() {
+    if (this.drag?.moved) this.dragged = true;
+    this.drag = null;
+    this.strip?.nativeElement.classList.remove('dragging');
+  }
+
+  /** Clique numa aba. Se o mouse acabou de arrastar a faixa, o "clique" do fim do arrasto é ignorado. */
+  pick(i: number) {
+    if (this.dragged) { this.dragged = false; return; }
+    this.play(i);
+  }
+
   private begin() {
     this.play(this.tab);
     this.cdr.detectChanges();
@@ -339,7 +411,7 @@ export class WhatsappAiDemoComponent implements AfterViewInit, OnDestroy {
         wait = step.msg.from === 'client' ? 900 : 1300;
       }
     }
-    q.push({ wait: wait + 3800, run: () => this.play((this.sIndex + 1) % SHAPES.length) });
+    q.push({ wait: wait + 3800, run: () => this.play((this.sIndex + 1) % this.scenarios().length) });
     this.queue = q;
     this.qi = 0;
   }

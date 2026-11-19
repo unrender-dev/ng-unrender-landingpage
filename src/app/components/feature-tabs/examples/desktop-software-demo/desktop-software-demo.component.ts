@@ -19,6 +19,16 @@ const STACK = {
 
 const SLIDE_MS = 4200;
 
+/** Notificações nativas que o app dispara (bandeja do Windows, central do macOS, GNOME). */
+const NOTES = [
+  { key: 'n1', icon: 'fa-solid fa-cash-register', tone: 'ok' },
+  { key: 'n2', icon: 'fa-solid fa-print', tone: 'info' },
+  { key: 'n3', icon: 'fa-brands fa-whatsapp', tone: 'ok' },
+  { key: 'n4', icon: 'fa-solid fa-fingerprint', tone: 'info' },
+  { key: 'n5', icon: 'fa-solid fa-cloud-arrow-up', tone: 'ok' },
+] as const;
+const NOTE_MS = 3200;
+
 /**
  * Software desktop: uma janela do SGA CTRLB (capturas reais) dentro de uma área de trabalho
  * genérica desenhada em CSS — sem logotipos, ícones ou papéis de parede de Windows/macOS/Ubuntu.
@@ -49,6 +59,12 @@ export class DesktopSoftwareDemoComponent implements AfterViewInit, OnDestroy {
 
   readonly screens = SCREENS;
   readonly stack = STACK;
+
+  /** Notificação nativa visível agora (`null` = nenhuma). */
+  note: (typeof NOTES)[number] | null = null;
+  noteShown = false;
+  private noteIndex = 0;
+  private noteTimer = 0;
 
   active = 0;
   /** Só carrega a captura atual e a próxima; as demais entram sob demanda. */
@@ -90,6 +106,7 @@ export class DesktopSoftwareDemoComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.showcase.destroy();
+    clearTimeout(this.noteTimer);
     clearInterval(this.clockTimer);
     document.removeEventListener('keydown', this.onKey);
     this.stopDrag?.();
@@ -110,9 +127,29 @@ export class DesktopSoftwareDemoComponent implements AfterViewInit, OnDestroy {
 
   private play(): void {
     this.showcase.seq([
-      [SLIDE_MS, () => this.go((this.active + 1) % SCREENS.length)],
+      [SLIDE_MS * 0.45, () => this.notify()],
+      [SLIDE_MS * 0.55, () => this.go((this.active + 1) % SCREENS.length)],
       [60, () => this.showcase.loop()],
     ]);
+  }
+
+  /** Mostra a próxima notificação do sistema operacional e a recolhe sozinha. */
+  private notify(): void {
+    if (!this.isWindowOpen) return;
+    this.note = NOTES[this.noteIndex++ % NOTES.length];
+    this.noteShown = true;
+    clearTimeout(this.noteTimer);
+    this.noteTimer = window.setTimeout(() => this.set(() => (this.noteShown = false)), NOTE_MS);
+  }
+
+  dismissNote(): void {
+    this.showcase.interact();
+    clearTimeout(this.noteTimer);
+    this.noteShown = false;
+  }
+
+  noteTime(): string {
+    return this.i18n.date(new Date(), { hour: '2-digit', minute: '2-digit' });
   }
 
   /** A troca de tela é um crossfade contínuo; aqui só reabrimos a janela se alguém a fechou. */

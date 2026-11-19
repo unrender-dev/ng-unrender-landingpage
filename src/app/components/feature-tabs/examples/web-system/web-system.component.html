@@ -1,95 +1,215 @@
-<section class="bi" [class.is-compact]="compact()" [class.is-paused]="!running()">
-  <header class="bi-head">
-    <p class="bi-eyebrow">
-      <fa-icon [icon]="faCircleCheck" aria-hidden="true"></fa-icon>
-      {{ t('eyebrow') }}
-    </p>
+<section class="ld" [class.is-paused]="!rotating()"
+  (pointerenter)="setHoverPause(true)" (pointerleave)="setHoverPause(false)"
+  (focusin)="setHoverPause(true)" (focusout)="onFocusOut($event)">
+  <header class="ld-head">
+    <p class="ld-eyebrow"><span class="ld-dot" aria-hidden="true"></span>{{ t('eyebrow') }}</p>
     <h3>{{ t('title') }}</h3>
-    <p class="bi-intro">{{ t('intro') }}</p>
+    <p class="ld-intro">{{ t('intro') }}</p>
   </header>
 
-  <div class="bi-tabs" role="tablist" [attr.aria-label]="t('tabsLabel')">
-    @for (s of slides; track s.id; let i = $index) {
-      <button
-        type="button"
-        role="tab"
-        class="bi-tab"
-        [id]="'bi-tab-' + s.id"
-        [class.is-active]="active() === i"
-        [attr.aria-selected]="active() === i"
-        [attr.aria-controls]="'bi-panel-' + s.id"
-        [attr.tabindex]="active() === i ? 0 : -1"
-        (click)="select(i)"
-        (keydown)="onTabKey($event, i)">
-        <fa-icon [icon]="s.icon" aria-hidden="true"></fa-icon>
-        <span class="bi-tab-label">{{ t(s.tab) }}</span>
-        @if (active() === i) {
+  <!-- Seletor de setor: troca sozinho; clique, setas ou foco assumem o controle -->
+  <div class="ld-chips" role="group" [attr.aria-label]="t('sectorsLabel')">
+    @for (s of sectors; track s.id; let i = $index) {
+      <button type="button" class="ld-chip" [class.is-active]="idx() === i" [attr.aria-pressed]="idx() === i"
+        [attr.tabindex]="idx() === i ? 0 : -1" (click)="select(i)" (keydown)="onSectorKey($event, i)">
+        <i [class]="s.icon" aria-hidden="true"></i>
+        <span>{{ texts()[i].label }}</span>
+        @if (idx() === i && !userPaused()) {
           @for (k of [cycle()]; track k) {
-            <span class="bi-progress" [style.animation-duration.ms]="dwell()" aria-hidden="true"></span>
+            <span class="ld-chip-progress" [style.animation-duration.ms]="sectorMs" aria-hidden="true"></span>
           }
         }
       </button>
     }
   </div>
 
-  <figure class="bi-window">
-    <div class="bi-bar">
-      <span class="bi-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-      <span class="bi-bar-title" aria-hidden="true">{{ t('windowTitle') }} · {{ t(slides[active()].tab) }}</span>
-      <button
-        type="button"
-        class="bi-toggle"
-        (click)="togglePlay()"
-        [attr.aria-label]="t(userPaused() ? 'play' : 'pause')"
-        [title]="t(userPaused() ? 'play' : 'pause')">
-        <fa-icon [icon]="userPaused() ? faPlay : faPause" aria-hidden="true"></fa-icon>
+  <figure class="ld-window">
+    <div class="ld-bar">
+      <span class="ld-traffic" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span class="ld-bar-title">
+        <img src="ctrlb-logo.png" alt="" class="ld-logo" />
+        <b>{{ t('windowTitle') }}</b>
+        <span class="ld-bar-biz">· {{ text().business }}</span>
+      </span>
+      <span class="ld-live"><span class="ld-dot" aria-hidden="true"></span>{{ t('live') }}</span>
+      <span class="ld-clock" aria-hidden="true">{{ clockLabel() }}</span>
+      <button type="button" class="ld-toggle" (click)="togglePlay()"
+        [attr.aria-label]="t(userPaused() ? 'play' : 'pause')" [title]="t(userPaused() ? 'play' : 'pause')">
+        <i [class]="userPaused() ? 'fa-solid fa-play' : 'fa-solid fa-pause'" aria-hidden="true"></i>
       </button>
     </div>
 
-    <!-- As três capturas ficam empilhadas: trocar de tela é só opacidade, sem recriar nós -->
-    <div class="bi-screen">
-      @for (s of slides; track s.id; let i = $index) {
-        <div
-          class="bi-slide"
-          role="tabpanel"
-          [id]="'bi-panel-' + s.id"
-          [attr.aria-labelledby]="'bi-tab-' + s.id"
-          [attr.aria-hidden]="active() !== i"
-          [class.is-active]="active() === i"
-          [class.is-zoomed]="zoomed() === i"
-          [style.--ox]="focus(s).ox + '%'"
-          [style.--oy]="focus(s).oy + '%'"
-          [style.--zoom]="focus(s).zoom">
-          <img
-            [src]="s.src"
-            [alt]="t(s.alt)"
-            width="1440"
-            height="900"
-            [attr.loading]="i === 0 ? 'eager' : 'lazy'"
-            decoding="async">
-          <span
-            class="bi-spot"
-            aria-hidden="true"
-            [style.left.%]="s.spot.l"
-            [style.top.%]="s.spot.t"
-            [style.width.%]="s.spot.w"
-            [style.height.%]="s.spot.h">
-            <span class="bi-spot-label">{{ t(s.spotLabel) }}</span>
-          </span>
-        </div>
-      }
-    </div>
+    <div class="ld-body" [class.is-swapping]="swapping()" aria-live="off">
+      <!-- KPIs -->
+      <ul class="ld-kpis">
+        @for (k of kpis(); track $index) {
+          <li class="ld-kpi">
+            <span class="ld-kpi-label"><i [class]="k.icon" aria-hidden="true"></i>{{ k.label }}</span>
+            <strong class="ld-kpi-value">{{ k.value }}</strong>
+            <span class="ld-kpi-delta" [class.is-good]="k.good" [class.is-bad]="!k.good">
+              <i [class]="k.up ? 'fa-solid fa-arrow-trend-up' : 'fa-solid fa-arrow-trend-down'" aria-hidden="true"></i>
+              <span class="sr-only">{{ t(k.up ? 'up' : 'down') }}</span>
+              {{ k.delta }} <small>{{ t('vsLast') }}</small>
+            </span>
+          </li>
+        }
+      </ul>
 
-    <!-- Legendas na mesma célula do grid: a altura é a da maior, então nada pula na troca -->
-    <figcaption class="bi-captions">
-      @for (s of slides; track s.id; let i = $index) {
-        <div class="bi-caption" [class.is-active]="active() === i" [attr.aria-hidden]="active() !== i">
-          <h4>{{ t(s.title) }}</h4>
-          <p>{{ t(s.text) }}</p>
-        </div>
-      }
-    </figcaption>
+      <div class="ld-row ld-row--main">
+        <!-- Receita acumulada x meta -->
+        <section class="ld-card ld-chart-card">
+          <header class="ld-card-head">
+            <h4>{{ t('chartTitle') }}</h4>
+            <span class="ld-legend" aria-hidden="true">
+              <span class="ld-key ld-key--area"></span>{{ t('revenue') }}
+              <span class="ld-key ld-key--target"></span>{{ t('target') }}
+            </span>
+          </header>
+          <div class="ld-chart" tabindex="0" role="img"
+            [attr.aria-label]="t('chartAria', { meta: i18n.money(sector().target, 0) })"
+            (pointermove)="onChartMove($event)" (pointerleave)="clearHover()" (keydown)="onChartKey($event)" (blur)="clearHover()">
+            @for (g of grid(); track $index) {
+              <span class="ld-grid" [style.top.%]="g.top"><em>{{ g.label }}</em></span>
+            }
+            <svg class="ld-svg" [attr.viewBox]="'0 0 ' + cw + ' ' + ch" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="ldArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#f99126" stop-opacity="0.38" />
+                  <stop offset="100%" stop-color="#f99126" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <path class="ld-area" [attr.d]="areaPath()" fill="url(#ldArea)" />
+              <path class="ld-target" [attr.d]="targetPath()" vector-effect="non-scaling-stroke" />
+              <path class="ld-line" [attr.d]="linePath()" vector-effect="non-scaling-stroke" />
+            </svg>
+            <span class="ld-end" [style.top.%]="lastPoint().top" aria-hidden="true">
+              <span class="ld-end-dot"></span>
+              <span class="ld-end-label">{{ t('ofTarget', { n: lastPoint().pct }) }}</span>
+            </span>
+            @if (hoverInfo(); as h) {
+              <span class="ld-cross" [style.left.%]="h.left" aria-hidden="true"></span>
+              <span class="ld-cross-dot" [style.left.%]="h.left" [style.top.%]="h.top" aria-hidden="true"></span>
+              <span class="ld-tip" [class.is-flip]="h.flip" [style.left.%]="h.left" role="status">
+                <span class="ld-tip-date">{{ h.date }}</span>
+                <span class="ld-tip-row"><span class="ld-tip-key"></span><strong>{{ h.value }}</strong> {{ t('revenue') }}</span>
+                <span class="ld-tip-row"><span class="ld-tip-key ld-tip-key--target"></span><strong>{{ h.target }}</strong> {{ t('target') }}</span>
+              </span>
+            }
+          </div>
+          <div class="ld-xaxis" aria-hidden="true">
+            @for (d of xLabels(); track $index) { <span>{{ d }}</span> }
+          </div>
+          <table class="sr-only">
+            <caption>{{ t('tableCaption') }}</caption>
+            <thead><tr><th scope="col">{{ t('colDay') }}</th><th scope="col">{{ t('revenue') }}</th><th scope="col">{{ t('target') }}</th></tr></thead>
+            <tbody>
+              @for (r of tableRows(); track $index) {
+                <tr><th scope="row">{{ r.day }}</th><td>{{ r.value }}</td><td>{{ r.target }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Copiloto IA -->
+        <section class="ld-card ld-copilot">
+          <header class="ld-copilot-head">
+            <span class="ld-copilot-ico" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <div class="ld-copilot-title">
+              <h4>{{ t('copilotTitle') }}</h4>
+              <p>{{ t('copilotSub') }}</p>
+            </div>
+          </header>
+          <p class="ld-tip-count">{{ t('tipCount', { i: tipIdx() + 1, n: tips().length }) }}</p>
+          <!-- Texto completo reservado por baixo: a altura não muda enquanto a dica é escrita -->
+          <div class="ld-copilot-text">
+            <p class="ld-ghost" aria-hidden="true">{{ tips()[tipIdx()] }}</p>
+            <p class="ld-typed" aria-hidden="true">{{ tipDone() ? tips()[tipIdx()] : tipText() }}@if (!tipDone()) {<span class="ld-caret"></span>}</p>
+          </div>
+          <p class="sr-only" aria-live="polite">{{ tips()[tipIdx()] }}</p>
+          <div class="ld-copilot-actions">
+            <button type="button" class="ld-apply" [class.is-done]="isApplied(tipIdx())" [disabled]="isApplied(tipIdx())" (click)="apply()">
+              <i [class]="isApplied(tipIdx()) ? 'fa-solid fa-circle-check' : 'fa-solid fa-bolt'" aria-hidden="true"></i>
+              {{ t(isApplied(tipIdx()) ? 'applied' : 'apply') }}
+            </button>
+            <button type="button" class="ld-next" (click)="nextTip()" [attr.aria-label]="t('nextTip')" [title]="t('nextTip')">
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+          </div>
+          <ol class="ld-tip-dots" aria-hidden="true">
+            @for (tip of tips(); track $index; let i = $index) {
+              <li [class.is-on]="i === tipIdx()" [class.is-applied]="isApplied(i)"></li>
+            }
+          </ol>
+        </section>
+      </div>
+
+      <div class="ld-row ld-row--three">
+        <!-- Funil -->
+        <section class="ld-card">
+          <header class="ld-card-head"><h4>{{ t('funnelTitle') }}</h4></header>
+          <ol class="ld-funnel">
+            @for (f of funnel(); track $index) {
+              <li>
+                <span class="ld-funnel-top"><span class="ld-funnel-name">{{ f.name }}</span><strong>{{ f.count }}</strong></span>
+                <span class="ld-funnel-track"><span class="ld-funnel-bar" [style.transform]="'scaleX(' + f.scale + ')'"></span></span>
+                @if (f.step) { <span class="ld-funnel-step">{{ f.step }}</span> }
+              </li>
+            }
+          </ol>
+        </section>
+
+        <!-- Feed em tempo real -->
+        <section class="ld-card">
+          <header class="ld-card-head"><h4>{{ t('feedTitle') }}</h4></header>
+          <ul class="ld-feed">
+            @for (f of feedView(); track f.id) {
+              <li class="ld-feed-item">
+                <span class="ld-feed-ico" [attr.data-kind]="f.kind"><i [class]="feedIcon[f.kind]" aria-hidden="true"></i></span>
+                <span class="ld-feed-text">
+                  <span class="sr-only">{{ t(feedLabel[f.kind]) }}: </span>{{ f.text }}
+                </span>
+                <time class="ld-feed-time">{{ f.time }}</time>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <!-- Online + telemetria -->
+        <section class="ld-card ld-ops">
+          <div class="ld-online">
+            <header class="ld-card-head"><h4>{{ t('onlineTitle') }}</h4></header>
+            <div class="ld-online-row">
+              <strong class="ld-online-n">{{ i18n.number(online()) }}</strong>
+              <span class="ld-avatars" aria-hidden="true">
+                @for (p of people; track p.i) { <span class="ld-avatar" [style.background]="p.c">{{ p.i }}</span> }
+                @if (extraPeople() > 0) { <span class="ld-avatar ld-avatar--more">+{{ extraPeople() }}</span> }
+              </span>
+            </div>
+            <p class="ld-online-split">{{ onlineSplit() }}</p>
+          </div>
+
+          <div class="ld-tel">
+            <header class="ld-card-head"><h4>{{ t('telTitle') }}</h4></header>
+            <div class="ld-tel-rpm">
+              <div>
+                <strong>{{ i18n.number(rpm()) }}</strong>
+                <span>{{ t('tRpm') }}</span>
+              </div>
+              <svg viewBox="0 0 120 30" class="ld-spark" aria-hidden="true" preserveAspectRatio="none">
+                <path [attr.d]="rpmSpark()" vector-effect="non-scaling-stroke" />
+              </svg>
+            </div>
+            <dl class="ld-tel-grid">
+              <div><dt>{{ t('tP95') }}</dt><dd>{{ t('ms', { n: i18n.number(p95()) }) }}</dd></div>
+              <div><dt>{{ t('tUptime') }}</dt><dd>{{ i18n.number(0.9998, { style: 'percent', minimumFractionDigits: 2 }) }}</dd></div>
+              <div><dt>{{ t('tQueue') }}</dt><dd>{{ i18n.number(queue()) }}</dd></div>
+            </dl>
+            <p class="ld-status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ t('statusOk') }}</p>
+          </div>
+        </section>
+      </div>
+    </div>
   </figure>
 
-  <p class="bi-note">{{ t(i18n.lang() === 'pt' ? 'realNote' : 'realNoteLang') }}</p>
+  <p class="ld-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> {{ t('note') }}</p>
 </section>

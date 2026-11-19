@@ -94,10 +94,7 @@ export class FeatureTabs implements OnInit, OnDestroy {
   selectItem(tab: TabId, item: MenuItem): void {
     if (item.id === this.selected()[tab].id) return;
     this.selected.update((s) => ({ ...s, [tab]: item }));
-    this.later(() => {
-      this.revealActiveChip();
-      this.scrollTo('.modern-content-wrapper', this.isDesktop() ? 100 : this.stickyHeight() + 8);
-    }, 80);
+    this.later(() => this.scrollTo('.modern-content-wrapper', this.isDesktop() ? 100 : this.stickyHeight() + 8), 80);
   }
 
   /** Leva para o formulário de contato da página (âncora `#contato` da home). */
@@ -118,6 +115,23 @@ export class FeatureTabs implements OnInit, OnDestroy {
     if (feature.installments) return this.t('ui.installments', { n: feature.installments, value });
     const product = feature.posProductId ? this.posModal.produtoPorId(feature.posProductId) : undefined;
     return `${this.t('ui.rent')}: ${product ? product.priceRent : this.t('ui.perMonth', { value })}`;
+  }
+
+  /** Foto do produto: a do catálogo da unidade no SGA quando houver; senão a ilustração local. */
+  productImage(feature: Feature): string {
+    const product = feature.posProductId ? this.posModal.produtoPorId(feature.posProductId) : undefined;
+    return product?.image || feature.image || '';
+  }
+
+  /** Foto real (não a ilustração SVG): enquadra com `cover` em vez de `contain`. */
+  isPhoto(feature: Feature): boolean {
+    return !/\.svg($|\?)/i.test(this.productImage(feature));
+  }
+
+  /** Preço veio do SGA com sincronização automática com lojas parceiras? */
+  livePrice(feature: Feature): boolean {
+    const product = feature.posProductId ? this.posModal.produtoPorId(feature.posProductId) : undefined;
+    return !!product?.sgaId && !!product.precoDinamico;
   }
 
   /** O produto existe no catálogo da loja? Só então o modal tem ficha e pedido para ele. */
@@ -156,7 +170,6 @@ export class FeatureTabs implements OnInit, OnDestroy {
     // Duas tentativas: a página ainda cresce acima (herói, lista de sistemas) depois do primeiro paint.
     const go = () => {
       if (this.userScrolled) return;
-      this.revealActiveChip();
       this.scrollTo(target, this.isDesktop() ? 100 : this.stickyHeight() + 8, 'auto');
     };
     this.later(go, 350);
@@ -183,18 +196,9 @@ export class FeatureTabs implements OnInit, OnDestroy {
     window.scrollTo({ top, behavior });
   }
 
-  /** Altura do cabeçalho fixo do acordeão (navbar + título da aba + chips), no celular. */
+  /** Altura do cabeçalho fixo do acordeão (navbar + título da aba), no celular. */
   private stickyHeight(): number {
     const sticky = this.host.nativeElement.querySelector<HTMLElement>('.accordion-tab-wrapper.is-open .sticky-header');
     return 64 + (sticky?.offsetHeight ?? 0);
-  }
-
-  /** No celular os chips rolam na horizontal: mantém o chip ativo à vista. */
-  private revealActiveChip(): void {
-    const chip = this.host.nativeElement.querySelector<HTMLElement>('.mobile-nav-container .chip.is-active');
-    const row = chip?.closest<HTMLElement>('.chip-row');
-    if (!chip || !row) return;
-    const left = chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2;
-    row.scrollTo({ left, behavior: this.scrollBehavior() });
   }
 }

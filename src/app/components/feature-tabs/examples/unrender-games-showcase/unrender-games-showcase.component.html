@@ -1,167 +1,303 @@
 <div class="ugs">
-  <!-- Cabeçalho e seletor de páginas -->
+  <!-- Cabeçalho -->
   <header class="ugs-header">
     <div class="ugs-header-main">
       <div class="ugs-brand">
-        <span class="ugs-brand-icon" aria-hidden="true"><fa-icon [icon]="faGamepad"></fa-icon></span>
+        <span class="ugs-brand-icon" aria-hidden="true"><fa-icon [icon]="icons.faGamepad"></fa-icon></span>
         <div class="ugs-brand-text">
           <h3>{{ t('title') }}</h3>
           <p>{{ t('subtitle') }}</p>
         </div>
       </div>
-
       <span class="ugs-live">
         <span class="ugs-live-dot" aria-hidden="true"></span>
-        {{ t('online') }}
+        {{ t('live') }}
       </span>
     </div>
 
-    <nav class="ugs-tabs" [attr.aria-label]="t('pagesNav')">
-      @for (r of routes; track r.id) {
+    <div class="ugs-games" role="tablist" [attr.aria-label]="t('gamesNav')">
+      @for (g of games; track g.id; let i = $index) {
         <button
           type="button"
-          class="ugs-tab"
-          [class.active]="activePath === r.path"
-          [attr.aria-pressed]="activePath === r.path"
-          (click)="selectRoute(r.path)">
-          <span class="ugs-tab-title">{{ t(r.label) }}</span>
-          <span class="ugs-tab-badge">{{ t(r.badge) }}</span>
+          role="tab"
+          class="ugs-game-tab"
+          [id]="'ugs-tab-' + g.id"
+          [class.active]="game() === g.id"
+          [attr.aria-selected]="game() === g.id"
+          [attr.aria-controls]="'ugs-panel'"
+          [attr.tabindex]="game() === g.id ? 0 : -1"
+          (click)="selectGame(g.id)"
+          (keydown)="onTabKey($event, i)">
+          <span class="ugs-game-ico" aria-hidden="true"><fa-icon [icon]="g.icon"></fa-icon></span>
+          <span class="ugs-game-txt">
+            <span class="ugs-game-name">{{ t(g.name) }}</span>
+            <span class="ugs-game-desc">{{ t(g.desc) }}</span>
+          </span>
         </button>
       }
-    </nav>
+    </div>
   </header>
 
-  <!-- Janela de navegador com o site ao vivo -->
-  <div class="ugs-browser">
-    <div class="ugs-bar">
-      <div class="ugs-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="ugs-main">
+    <!-- Tela do totem -->
+    <section
+      class="ugs-stage"
+      id="ugs-panel"
+      role="tabpanel"
+      [attr.aria-labelledby]="'ugs-tab-' + game()">
+      @switch (game()) {
+        @case ('wheel') {
+          <div class="g-wheel">
+            <div class="wheel-wrap">
+              <span class="wheel-pointer" #wheelPointer aria-hidden="true"></span>
+              <svg viewBox="0 0 220 220" class="wheel-svg" role="img" [attr.aria-label]="t('wheelAria')">
+                <circle cx="110" cy="110" r="108" class="wheel-rim" />
+                <g #wheelRotor>
+                  @for (s of slices; track s.key; let i = $index) {
+                    <path [attr.d]="s.path" [attr.fill]="s.color" class="wheel-slice"
+                      [class.is-win]="!spinning() && wheelResult() === i" />
+                    <text [attr.x]="s.tx" [attr.y]="s.ty" [attr.fill]="s.ink" class="wheel-label"
+                      [attr.transform]="'rotate(' + s.rot + ' ' + s.tx + ' ' + s.ty + ')'">{{ t(s.key) }}</text>
+                  }
+                </g>
+                @for (b of bulbs; track $index) {
+                  <circle class="wheel-bulb" r="2.6" [attr.cx]="b.x" [attr.cy]="b.y" [class.on]="spinning()" />
+                }
+                <circle cx="110" cy="110" r="20" class="wheel-hub" />
+                <text x="110" y="114" class="wheel-hub-txt">GO</text>
+              </svg>
+            </div>
+            <div class="g-actions">
+              <button type="button" class="ugs-btn ugs-btn-primary ugs-btn-lg" (click)="spin()" [disabled]="spinning()">
+                <fa-icon [icon]="icons.faRotateRight" [class.spin-ico]="spinning()" aria-hidden="true"></fa-icon>
+                {{ spinning() ? t('spinning') : t('spin') }}
+              </button>
+              <p class="g-result" aria-live="polite">
+                @if (!spinning() && wheelResult() !== null) {
+                  @if (slices[wheelResult()!].points > 0) {
+                    <strong>{{ t('youWon', { premio: t(slices[wheelResult()!].key) }) }}</strong>
+                  } @else {
+                    {{ t('noLuck') }}
+                  }
+                }
+              </p>
+            </div>
+          </div>
+        }
 
-      <div class="ugs-address">
-        <fa-icon [icon]="faLock" class="ugs-lock" aria-hidden="true"></fa-icon>
-        <span class="ugs-address-text">{{ displayUrl }}</span>
-      </div>
+        @case ('quiz') {
+          <div class="g-quiz">
+            @if (!qDone()) {
+              <div class="quiz-top">
+                <span class="quiz-step">{{ t('qProgress', { n: qIndex() + 1, total: quiz.length }) }}</span>
+                <span class="quiz-time" [class.low]="qTime() <= 5">{{ t('timeLeft', { s: ceil(qTime()) }) }}</span>
+              </div>
+              <div class="quiz-bar" aria-hidden="true"><span [style.transform]="'scaleX(' + qTime() / qSeconds + ')'"></span></div>
+              <p class="quiz-q">{{ t(qCurrent().q) }}</p>
+              <div class="quiz-options">
+                @for (opt of qCurrent().options; track opt; let i = $index) {
+                  <button type="button" class="quiz-opt"
+                    [class.is-right]="qAnswer() !== null && i === qCurrent().correct"
+                    [class.is-wrong]="qAnswer() === i && i !== qCurrent().correct"
+                    [disabled]="qAnswer() !== null"
+                    (click)="answer(i)">
+                    <span class="quiz-letter" aria-hidden="true">{{ 'ABCD'[i] }}</span>
+                    <span>{{ t(opt) }}</span>
+                    @if (qAnswer() !== null && i === qCurrent().correct) {
+                      <fa-icon [icon]="icons.faCircleCheck" class="quiz-mark" aria-hidden="true"></fa-icon>
+                    } @else if (qAnswer() === i) {
+                      <fa-icon [icon]="icons.faCircleXmark" class="quiz-mark" aria-hidden="true"></fa-icon>
+                    }
+                  </button>
+                }
+              </div>
+              <div class="quiz-feedback" aria-live="polite">
+                @if (qAnswer() !== null) {
+                  <span [class.ok]="qAnswer() === qCurrent().correct">
+                    @if (qAnswer() === -1) { {{ t('timeUp') }} }
+                    {{ qAnswer() === qCurrent().correct ? t('correct') : t('wrong', { r: correctLabel() }) }}
+                  </span>
+                  <button type="button" class="ugs-btn ugs-btn-primary" (click)="nextQuestion()">
+                    {{ qIndex() === quiz.length - 1 ? t('seeResult') : t('next') }}
+                  </button>
+                }
+              </div>
+            } @else {
+              <div class="g-done">
+                <fa-icon [icon]="icons.faCrown" class="g-done-ico" aria-hidden="true"></fa-icon>
+                <p class="g-done-title" aria-live="polite">{{ t('quizDone', { n: qHits(), total: quiz.length }) }}</p>
+                <p class="g-done-pts">{{ t('points', { n: i18n.number(qPoints()) }) }}</p>
+                <button type="button" class="ugs-btn ugs-btn-primary" (click)="restartQuiz()">
+                  <fa-icon [icon]="icons.faRotateRight" aria-hidden="true"></fa-icon> {{ t('playAgain') }}
+                </button>
+              </div>
+            }
+          </div>
+        }
 
-      <div class="ugs-actions">
-        <button
-          type="button"
-          class="ugs-action"
-          (click)="reloadIframe()"
-          [attr.aria-label]="t('reload')"
-          [title]="t('reload')">
-          <fa-icon [icon]="faSync" [class.ugs-spin]="status() === 'loading'"></fa-icon>
-        </button>
-        <button
-          type="button"
-          class="ugs-action ugs-action-open"
-          (click)="openInNewTab()"
-          [attr.aria-label]="t('openNewTab')"
-          [title]="t('openNewTab')">
-          <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
-          <span>{{ t('open') }}</span>
-        </button>
-      </div>
-    </div>
+        @case ('memory') {
+          <div class="g-memory">
+            <div class="mem-top">
+              <span>{{ t('memPairs', { n: memPairs(), total: 6 }) }}</span>
+              <span>{{ t('memMoves', { n: memMoves() }) }}</span>
+            </div>
+            <div class="mem-grid">
+              @for (c of cards(); track c.uid; let i = $index) {
+                <button type="button" class="mem-card" [class.is-open]="c.open || c.matched" [class.is-matched]="c.matched"
+                  [attr.aria-label]="cardLabel(c, i)" [attr.aria-pressed]="c.open || c.matched" (click)="flip(i)">
+                  <span class="mem-inner" aria-hidden="true">
+                    <span class="mem-back"><fa-icon [icon]="icons.faGamepad"></fa-icon></span>
+                    <span class="mem-front"><fa-icon [icon]="memIcons[c.face]"></fa-icon></span>
+                  </span>
+                </button>
+              }
+            </div>
+            <div class="mem-foot" aria-live="polite">
+              @if (memDone()) {
+                <strong>{{ t('memDone', { n: memMoves() }) }}</strong>
+              }
+              <button type="button" class="ugs-btn ugs-btn-ghost" (click)="shuffleMemory()">
+                <fa-icon [icon]="icons.faRotateRight" aria-hidden="true"></fa-icon> {{ t('memShuffle') }}
+              </button>
+            </div>
+          </div>
+        }
 
-    <div class="ugs-viewport" [attr.data-status]="status()">
-      <!-- Imagem real ao fundo: aparece durante o carregamento e no fallback -->
-      <img class="ugs-poster" [src]="posterImage" [alt]="t('fallbackAlt')" loading="lazy" decoding="async">
+        @case ('scratch') {
+          <div class="g-scratch">
+            <p class="scratch-hint">{{ t('scratchHint') }}</p>
+            <div class="scratch-card">
+              <div class="scratch-prize" [attr.aria-hidden]="!scratchRevealed()">
+                <fa-icon [icon]="icons.faTicket" class="scratch-prize-ico"></fa-icon>
+                <span class="scratch-prize-lbl">{{ t('scratchPrize') }}</span>
+                <strong>{{ t(slices[scratchPrize()].key) }}</strong>
+              </div>
+              <canvas #scratch class="scratch-canvas" [class.is-gone]="scratchRevealed()" role="img"
+                [attr.aria-label]="t('scratchAria')"
+                (pointerdown)="onScratchDown($event)" (pointermove)="onScratchMove($event)"
+                (pointerup)="onScratchUp()" (pointercancel)="onScratchUp()" (pointerleave)="onScratchUp()"></canvas>
+            </div>
+            <div class="g-actions g-actions-row" aria-live="polite">
+              @if (!scratchRevealed()) {
+                <button type="button" class="ugs-btn ugs-btn-ghost" (click)="revealScratch()">{{ t('scratchAll') }}</button>
+              } @else {
+                <strong class="g-result">{{ t('youWon', { premio: t(slices[scratchPrize()].key) }) }}</strong>
+                <button type="button" class="ugs-btn ugs-btn-primary" (click)="newScratch()">
+                  <fa-icon [icon]="icons.faRotateRight" aria-hidden="true"></fa-icon> {{ t('scratchAgain') }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+      }
+    </section>
 
-      @if (sanitizedUrl(); as url) {
-        <iframe
-          [src]="url"
-          class="ugs-iframe"
-          [class.is-ready]="status() === 'ready'"
-          [title]="t('iframeTitle', { pagina: t(activeRoute().label) })"
-          allow="accelerometer; autoplay; camera; gyroscope; fullscreen; xr-spatial-tracking"
-          referrerpolicy="strict-origin-when-cross-origin"
-          (load)="onFrameLoad()">
-        </iframe>
+    <!-- Lateral: pontuação, lead, placar e números -->
+    <aside class="ugs-side">
+      @if (leadState() !== 'idle' && lastScore() !== null) {
+        <div class="ugs-panel ugs-lead">
+          <div class="lead-score">
+            <span>{{ t('yourScore') }}</span>
+            <strong>{{ t('points', { n: i18n.number(lastScore()!) }) }}</strong>
+            @if (lastPrize(); as prize) { <em>{{ t(prize) }}</em> }
+          </div>
+          @if (leadState() === 'form') {
+            <form class="lead-form" (submit)="submitLead($event)" novalidate>
+              <p class="lead-title"><fa-icon [icon]="icons.faUserPlus" aria-hidden="true"></fa-icon> {{ t('leadTitle') }}</p>
+              <p class="lead-text">{{ t('leadText') }}</p>
+              <label class="lead-field">
+                <span>{{ t('leadName') }}</span>
+                <input type="text" name="ugs-nome" autocomplete="off" maxlength="60" [value]="leadName()" (input)="onInput('name', $event)" />
+              </label>
+              <label class="lead-field">
+                <span>{{ t('leadPhone') }}</span>
+                <input type="tel" name="ugs-tel" autocomplete="off" inputmode="tel" maxlength="20" [value]="leadPhone()" (input)="onInput('phone', $event)" />
+              </label>
+              <label class="lead-check">
+                <input type="checkbox" [checked]="leadConsent()" (change)="onConsent($event)" />
+                <span>{{ t('leadConsent') }}</span>
+              </label>
+              @if (leadError()) { <p class="lead-error" role="alert">{{ t('leadNeed') }}</p> }
+              <div class="lead-actions">
+                <button type="submit" class="ugs-btn ugs-btn-primary">{{ t('leadSubmit') }}</button>
+                <button type="button" class="ugs-btn ugs-btn-ghost" (click)="skipLead()">{{ t('leadSkip') }}</button>
+              </div>
+              <p class="lead-note">{{ t('leadNote') }}</p>
+            </form>
+          } @else {
+            <p class="lead-done" role="status"><fa-icon [icon]="icons.faCircleCheck" aria-hidden="true"></fa-icon> {{ t('leadDone') }}</p>
+          }
+        </div>
       }
 
-      <div class="ugs-overlay ugs-loading" [class.is-visible]="status() === 'loading' || status() === 'idle'" role="status">
-        <span class="ugs-spinner" aria-hidden="true"></span>
-        <p>{{ t('loading', { pagina: t(activeRoute().label) }) }}</p>
+      <div class="ugs-panel ugs-board">
+        <p class="board-title"><fa-icon [icon]="icons.faRankingStar" aria-hidden="true"></fa-icon> {{ t('lbTitle') }}</p>
+        <ol class="board-list">
+          @for (p of ranking(); track p.name) {
+            <li class="board-row" [class.is-you]="p.you">
+              <span class="board-rank">{{ p.rank }}</span>
+              <span class="board-name">{{ playerName(p) }}</span>
+              <span class="board-score">{{ i18n.number(p.score) }}</span>
+            </li>
+          }
+        </ol>
+        <p class="board-ticker" aria-live="off">{{ ticker() ?? ' ' }}</p>
       </div>
 
-      <div class="ugs-overlay ugs-fallback" [class.is-visible]="status() === 'failed'" [attr.aria-hidden]="status() !== 'failed'">
-        <div class="ugs-fallback-card">
-          <h4>{{ t('fallbackTitle') }}</h4>
-          <p>{{ t('fallbackText') }}</p>
-          <div class="ugs-fallback-actions">
-            <a
-              class="ugs-btn ugs-btn-primary"
-              [href]="currentFullUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              [attr.tabindex]="status() === 'failed' ? 0 : -1">
-              <fa-icon [icon]="faArrowUpRight"></fa-icon>
-              {{ t('openSite') }}
-            </a>
-            <button
-              type="button"
-              class="ugs-btn ugs-btn-ghost"
-              (click)="reloadIframe()"
-              [attr.tabindex]="status() === 'failed' ? 0 : -1">
-              <fa-icon [icon]="faSync"></fa-icon>
-              {{ t('retry') }}
-            </button>
-          </div>
-        </div>
+      <div class="ugs-kpis">
+        <div class="ugs-kpi"><strong>{{ i18n.number(plays()) }}</strong><span>{{ t('kPlays') }}</span></div>
+        <div class="ugs-kpi"><strong>{{ i18n.number(leads()) }}</strong><span>{{ t('kLeads') }}</span></div>
+        <div class="ugs-kpi"><strong>{{ conversion() }}%</strong><span>{{ t('kConv') }}</span></div>
       </div>
-    </div>
-
-    <footer class="ugs-footer">
-      <span class="ugs-tip">
-        <fa-icon [icon]="faLightbulb" class="ugs-tip-icon" aria-hidden="true"></fa-icon>
-        <span><strong>{{ t('tipLabel') }}{{ i18n.lang() === 'fr' ? ' :' : ':' }}</strong> {{ t('tip') }}</span>
-      </span>
-      <a [href]="currentFullUrl" target="_blank" rel="noopener noreferrer" class="ugs-link">
-        {{ t('visit', { url: displayUrl }) }}
-        <fa-icon [icon]="faArrowUpRight" aria-hidden="true"></fa-icon>
-      </a>
-    </footer>
+    </aside>
   </div>
+  <p class="ugs-note"><fa-icon [icon]="icons.faInfoCircle" aria-hidden="true"></fa-icon> {{ t('demoNote') }}</p>
 
-  <!-- Totens em destaque -->
+  <!-- Totens -->
   <section class="ugs-catalog">
     <div class="ugs-section-head">
-      <fa-icon [icon]="faTv" class="ugs-section-icon" aria-hidden="true"></fa-icon>
+      <fa-icon [icon]="icons.faTv" class="ugs-section-icon" aria-hidden="true"></fa-icon>
       <div>
         <h4>{{ t('catalogTitle') }}</h4>
-        <p>{{ t('catalogSubtitle') }}</p>
+        <p>{{ t('catalogSubtitle') }} <span class="ugs-photo-note">{{ t('photoNote') }}</span></p>
       </div>
     </div>
 
     <div class="ugs-grid">
       @for (item of totemHighlights; track item.id) {
         <article class="totem-card">
-          <div class="totem-thumb" [class.totem-thumb-icon]="!item.image">
-            @if (item.image && item.alt) {
-              <img [src]="item.image" [alt]="t(item.alt)" [style.object-position]="item.focus || null" loading="lazy" decoding="async">
+          @let img = totemImage(item);
+          <div class="totem-thumb" [class.totem-thumb-icon]="!img">
+            @if (img && item.alt) {
+              <img [src]="img" [alt]="t(item.alt)" [style.object-position]="item.focus || null" loading="lazy" decoding="async">
             } @else {
-              <fa-icon [icon]="faGamepad" aria-hidden="true"></fa-icon>
+              <fa-icon [icon]="icons.faGamepad" aria-hidden="true"></fa-icon>
             }
           </div>
           <div class="totem-info">
             <h5>{{ t(item.name) }}</h5>
             <p class="totem-specs">{{ t(item.specs) }}</p>
             <div class="totem-pricing">
-              <span class="price-val">{{ t('sale') }}{{ i18n.lang() === 'fr' ? ' :' : ':' }} {{ money(item.price) }}</span>
-              <span class="rent-val">
-                {{ t('rent') }}{{ i18n.lang() === 'fr' ? ' :' : ':' }}
-                {{ t('installments', { n: item.rentInstallments, valor: money(item.rentValue) }) }}
-              </span>
+              <span class="price-val">{{ t('sale') }}{{ colon() }} {{ saleLabel(item) }}</span>
+              <span class="rent-val">{{ t('rent') }}{{ colon() }} {{ rentLabel(item) }}</span>
             </div>
           </div>
           <div class="totem-actions">
-            <button type="button" class="btn-order" (click)="posModal.abrirPedido(item.id)">
-              <fa-icon [icon]="faShoppingCart" aria-hidden="true"></fa-icon>
-              <span>{{ t('buy') }}</span>
-            </button>
-            <button type="button" class="btn-tech" (click)="posModal.abrirDetalhe(item.id)">
-              <fa-icon [icon]="faInfoCircle" aria-hidden="true"></fa-icon>
-              <span>{{ t('specs') }}</span>
-            </button>
+            @if (product(item)) {
+              <button type="button" class="btn-order" (click)="posModal.abrirPedido(item.id)">
+                <fa-icon [icon]="icons.faShoppingCart" aria-hidden="true"></fa-icon>
+                <span>{{ t('buy') }}</span>
+              </button>
+              <button type="button" class="btn-tech" (click)="posModal.abrirDetalhe(item.id)">
+                <fa-icon [icon]="icons.faInfoCircle" aria-hidden="true"></fa-icon>
+                <span>{{ t('specs') }}</span>
+              </button>
+            } @else {
+              <a class="btn-order btn-wide" [href]="quoteLink(item)" target="_blank" rel="noopener noreferrer">
+                <fa-icon [icon]="icons.faWhatsapp" aria-hidden="true"></fa-icon>
+                <span>{{ t('quote') }}</span>
+              </a>
+            }
           </div>
         </article>
       }

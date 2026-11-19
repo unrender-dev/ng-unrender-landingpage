@@ -70,9 +70,38 @@
     box-shadow 0.28s ease;
 
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 18px 40px rgba(249, 145, 38, 0.12);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(249, 145, 38, 0.1);
   }
+}
+
+// Vitrine fluida: cada card tem no mínimo ~15rem e as colunas se ajustam
+// sozinhas (1 no celular, 2 no tablet, 3–4 no desktop, 5 em telas largas).
+.loja-grid {
+  grid-template-columns: 1fr;
+
+  @media (min-width: 480px) {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  }
+
+  @media (min-width: 1536px) {
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  }
+}
+
+// Miniatura lateral no celular: altura mínima para o card não achatar.
+.loja-card-media {
+  min-height: 7rem;
+
+  @media (min-width: 480px) {
+    min-height: 0;
+  }
+}
+
+// Etiquetas: mostra só a primeira linha (o resto está na ficha técnica).
+.loja-tags {
+  max-height: 1.375rem;
+  overflow: hidden;
 }
 
 .loja-card-img {
@@ -119,12 +148,70 @@
 
   .loja-btn,
   .loja-card,
-  .loja-card-img {
+  // Vitrine fluida: cada card tem no mínimo ~15rem e as colunas se ajustam
+// sozinhas (1 no celular, 2 no tablet, 3–4 no desktop, 5 em telas largas).
+.loja-grid {
+  grid-template-columns: 1fr;
+
+  @media (min-width: 480px) {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  }
+
+  @media (min-width: 1536px) {
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  }
+}
+
+// Miniatura lateral no celular: altura mínima para o card não achatar.
+.loja-card-media {
+  min-height: 7rem;
+
+  @media (min-width: 480px) {
+    min-height: 0;
+  }
+}
+
+// Etiquetas: mostra só a primeira linha (o resto está na ficha técnica).
+.loja-tags {
+  max-height: 1.375rem;
+  overflow: hidden;
+}
+
+.loja-card-img {
     transition: none;
   }
 
   .loja-card:hover,
-  .loja-card:hover .loja-card-img {
+  .loja-card:hover // Vitrine fluida: cada card tem no mínimo ~15rem e as colunas se ajustam
+// sozinhas (1 no celular, 2 no tablet, 3–4 no desktop, 5 em telas largas).
+.loja-grid {
+  grid-template-columns: 1fr;
+
+  @media (min-width: 480px) {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  }
+
+  @media (min-width: 1536px) {
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  }
+}
+
+// Miniatura lateral no celular: altura mínima para o card não achatar.
+.loja-card-media {
+  min-height: 7rem;
+
+  @media (min-width: 480px) {
+    min-height: 0;
+  }
+}
+
+// Etiquetas: mostra só a primeira linha (o resto está na ficha técnica).
+.loja-tags {
+  max-height: 1.375rem;
+  overflow: hidden;
+}
+
+.loja-card-img {
     transform: none;
   }
 }

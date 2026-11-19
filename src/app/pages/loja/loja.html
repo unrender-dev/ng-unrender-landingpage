@@ -171,88 +171,90 @@
     </div>
     }
 
-    <!-- Vitrine -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+    <!-- Vitrine: grade fluida (auto-fill) — 1 coluna no celular, 2 a 4 conforme a largura -->
+    <div class="loja-grid grid gap-3 sm:gap-4">
       @for (produto of produtosFiltrados(); track produto.id; let i = $index) {
       <article
-        class="loja-card group bg-[#120822] border-[1px] border-white/10 hover:border-unrender-accent/60 rounded-2xl overflow-hidden flex flex-col"
+        class="loja-card group relative bg-[#120822] border-[1px] border-white/10 hover:border-unrender-accent/60 rounded-xl overflow-hidden flex min-[480px]:flex-col"
         [style.--i]="i < 9 ? i : 9"
       >
+        <!-- Imagem: miniatura lateral no celular, topo do card a partir de 480px -->
         <button
           type="button"
           (click)="abrirDetalheProduto(produto)"
           [attr.aria-label]="t('fichaDe', { nome: produto.shortTitle })"
-          class="relative block w-full aspect-[8/5] bg-[#080310] overflow-hidden cursor-pointer text-left"
+          class="loja-card-media relative block flex-shrink-0 w-24 min-[480px]:w-full self-stretch min-[480px]:self-auto min-[480px]:aspect-[16/10] bg-[#080310] overflow-hidden cursor-pointer"
         >
-          <img [src]="produto.image" alt="" loading="lazy" class="loja-card-img w-full h-full object-cover" />
-          <span class="absolute inset-0 bg-gradient-to-t from-[#120822] via-transparent to-black/30"></span>
+          <img [src]="produto.image" alt="" loading="lazy" decoding="async" class="loja-card-img absolute inset-0 w-full h-full"
+            [style.object-fit]="produto.image.endsWith('.svg') ? 'cover' : 'contain'" [style.background-color]="produto.image.endsWith('.svg') ? null : '#fff'" [style.padding]="produto.image.endsWith('.svg') ? null : '8%'" />
 
           <span
-            class="loja-wrap absolute top-3 left-3 max-w-[56%] px-3 py-1 rounded-xl text-[10px] leading-tight font-bold uppercase tracking-wider border-[1px] {{ produto.badgeColor }}"
+            class="truncate hidden min-[480px]:block absolute top-2 left-2 max-w-[55%] px-2 py-0.5 rounded-md text-[9px] leading-tight font-bold uppercase tracking-wider border-[1px] {{ produto.badgeColor }}"
           >
             {{ produto.badge }}
           </span>
-          <span class="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-black/65 text-emerald-300 border-[1px] border-emerald-500/40">
+          <span class="absolute bottom-1.5 left-1.5 min-[480px]:bottom-auto min-[480px]:left-auto min-[480px]:top-2 min-[480px]:right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full whitespace-nowrap text-[9px] font-bold bg-black/70 text-emerald-300 border-[1px] border-emerald-500/40">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             {{ t('emEstoque', { n: produto.stockCount }) }}
           </span>
-          <span class="absolute bottom-3 left-4 right-4 truncate text-[11px] font-bold uppercase tracking-wider text-unrender-accent">
-            {{ produto.categoryLabel }}
-          </span>
         </button>
 
-        <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-4">
+        <div class="flex-1 min-w-0 p-3 flex flex-col gap-2">
           <div class="min-w-0">
-            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] font-mono text-gray-400 mb-1">
-              <span>SKU {{ produto.sku }}</span>
-              <span class="text-emerald-400">{{ produto.leadTime }}</span>
+            <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-unrender-accent min-w-0">
+              <span class="truncate">{{ produto.categoryLabel }}</span>
             </div>
 
-            <h2 class="loja-wrap text-base sm:text-lg font-extrabold text-white group-hover:text-unrender-accent transition-colors leading-snug">
+            <h2
+              class="loja-wrap mt-0.5 text-[13px] sm:text-sm font-bold text-white group-hover:text-unrender-accent transition-colors leading-snug line-clamp-2"
+              [attr.title]="produto.name"
+            >
               {{ produto.name }}
             </h2>
 
-            <p class="text-xs sm:text-sm text-gray-300 mt-2 leading-relaxed line-clamp-3">{{ produto.shortDesc }}</p>
+            <div class="hidden min-[480px]:block mt-1"><p class="text-xs text-gray-400 leading-relaxed line-clamp-2">{{ produto.shortDesc }}</p></div>
 
-            <div class="flex flex-wrap gap-1.5 mt-3">
+            <!-- Etiquetas: só a primeira linha aparece, o resto fica na ficha -->
+            <div class="loja-tags hidden min-[480px]:flex flex-wrap gap-1 mt-2">
               @for (tag of produto.tags; track tag) {
-              <span class="px-2.5 py-1 rounded-lg bg-white/5 border-[1px] border-white/10 text-[11px] font-medium text-gray-200">
+              <span class="px-1.5 py-0.5 rounded-md bg-white/5 border-[1px] border-white/10 text-[10px] font-medium text-gray-300 whitespace-nowrap">
                 {{ tag }}
               </span>
               }
             </div>
           </div>
 
-          <div class="pt-4 border-t border-white/10 space-y-3">
-            <div class="grid grid-cols-2 gap-2.5 bg-black/45 p-3 rounded-xl border-[1px] border-white/10">
-              <div class="min-w-0">
-                <span class="block text-[10px] uppercase tracking-wider text-gray-400">{{ t('venda') }}</span>
-                <span class="block text-base sm:text-lg font-extrabold text-white whitespace-nowrap">{{ produto.priceSale }}</span>
-                <span class="block text-[10px] text-emerald-400">{{ t('pixOu12') }}</span>
+          <div class="mt-auto space-y-2">
+            <!-- Preço: compra em destaque + locação na mesma linha -->
+            <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-0.5 pt-2 border-t border-white/10">
+              <div class="min-w-0" [attr.title]="t('pixOu12')">
+                <span class="block text-[9px] uppercase tracking-wider text-gray-400 leading-none">{{ t('venda') }}</span>
+                <span class="block text-base sm:text-lg font-extrabold text-white whitespace-nowrap leading-tight">{{ produto.priceSale }}</span>
               </div>
-              <div class="min-w-0 border-l border-white/10 pl-3">
-                <span class="block text-[10px] uppercase tracking-wider text-amber-300">{{ t('locacao') }}</span>
-                <span class="block text-sm sm:text-base font-bold text-amber-300 whitespace-nowrap">{{ produto.priceRent }}</span>
-                <span class="block text-[10px] text-gray-400">{{ t('suporteTroca') }}</span>
+              <div class="min-w-0 text-right" [attr.title]="t('suporteTroca')">
+                <span class="block text-[9px] uppercase tracking-wider text-amber-300/90 leading-none">{{ t('locacao') }}</span>
+                <span class="block text-xs sm:text-[13px] font-bold text-amber-300 whitespace-nowrap leading-tight">{{ produto.priceRent }}</span>
               </div>
             </div>
 
-            <div class="flex flex-wrap items-stretch gap-2">
+            <div class="flex items-stretch gap-1.5">
               <button
                 type="button"
                 (click)="iniciarPedido(produto, 'Compra (Venda Definitiva)')"
-                class="loja-btn flex-1 min-h-[44px] py-2 px-3 rounded-xl bg-unrender-accent hover:bg-amber-400 text-[#10051c] font-extrabold text-xs sm:text-[13px] flex items-center justify-center gap-2 cursor-pointer"
+                class="loja-btn flex-1 min-w-0 min-h-[44px] sm:min-h-[40px] px-2 rounded-lg bg-unrender-accent hover:bg-amber-400 text-[#10051c] font-extrabold text-xs flex items-center justify-center gap-1 min-[400px]:gap-1.5 cursor-pointer"
               >
-                <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
-                {{ t('comprar') }}
+                <i class="fa-solid fa-cart-shopping text-[11px] hidden min-[400px]:inline" aria-hidden="true"></i>
+                <span class="truncate">{{ t('comprar') }}</span>
               </button>
 
               <button
                 type="button"
                 (click)="abrirDetalheProduto(produto)"
-                class="loja-btn min-h-[44px] py-2 px-3 rounded-xl bg-white/5 hover:bg-white/15 border-[1px] border-white/15 text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                [attr.aria-label]="t('fichaDe', { nome: produto.shortTitle })"
+                [attr.title]="t('ficha')"
+                class="loja-btn w-11 sm:w-10 min-h-[44px] sm:min-h-[40px] flex-shrink-0 rounded-lg bg-white/5 hover:bg-white/15 border-[1px] border-white/15 text-gray-200 hover:text-white hidden min-[480px]:inline-flex items-center justify-center cursor-pointer"
               >
-                {{ t('ficha') }}
+                <i class="fa-solid fa-circle-info text-sm" aria-hidden="true"></i>
               </button>
 
               <a
@@ -261,9 +263,10 @@
                 rel="noopener noreferrer"
                 (click)="registrarWhatsapp(produto)"
                 [attr.aria-label]="t('whatsAria', { nome: produto.shortTitle })"
-                class="loja-btn w-11 min-h-[44px] rounded-xl bg-emerald-500/15 hover:bg-emerald-500/30 border-[1px] border-emerald-500/40 text-emerald-400 flex items-center justify-center flex-shrink-0"
+                title="WhatsApp"
+                class="loja-btn w-11 sm:w-10 min-h-[44px] sm:min-h-[40px] flex-shrink-0 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 border-[1px] border-emerald-500/40 text-emerald-400 flex items-center justify-center"
               >
-                <i class="fa-brands fa-whatsapp text-lg" aria-hidden="true"></i>
+                <i class="fa-brands fa-whatsapp text-base" aria-hidden="true"></i>
               </a>
             </div>
           </div>

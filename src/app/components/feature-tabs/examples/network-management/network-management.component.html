@@ -90,6 +90,20 @@
         {{ uplink() === 'normal' ? t('failBtn') : uplink() === 'failover' ? t('restoreBtn') : t('recoveringBtn') }}
       </button>
 
+      <section class="box apps">
+        <div class="box-title">{{ t('appsTitle') }} <span class="apps-dev">{{ t('devices', { n: num(devicesOnline()) }) }}</span></div>
+        <div class="apps-bar" aria-hidden="true">
+          @for (a of appShares(); track a.key) {
+          <span [style.flex-grow]="a.pct" [style.background-color]="a.color"></span>
+          }
+        </div>
+        <ul class="apps-list">
+          @for (a of appShares(); track a.key) {
+          <li><span class="swatch" [style.background-color]="a.color"></span><span class="app-name">{{ t(a.key) }}</span><b>{{ pct(a.pct) }}</b></li>
+          }
+        </ul>
+      </section>
+
       <section class="box events">
         <div class="box-title">{{ t('events') }}</div>
         <ul>

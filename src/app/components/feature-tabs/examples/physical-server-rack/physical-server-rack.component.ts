@@ -105,6 +105,8 @@ export class PhysicalServerRackComponent implements AfterViewInit, OnDestroy {
 
   readonly servers = signal<ServerView[]>(this.snapshot());
   readonly queue = signal<{ id: number; key: Key }[]>([]);
+  /** Tarefas na fila além das três mostradas. */
+  readonly queueExtra = signal(0);
   readonly done = signal(this.doneCount);
   readonly totalPower = signal(0.9);
   readonly selectedId = signal(this.sim[0].id);
@@ -116,7 +118,23 @@ export class PhysicalServerRackComponent implements AfterViewInit, OnDestroy {
   private nextAutoSelect = 6;
 
   ngAfterViewInit(): void {
-    for (let i = 0; i < 4; i++) this.pending.push(this.makeJob());
+    // Começa com o rack já trabalhando: quase todas as GPUs com tarefa em andamento
+    // (progresso variado) e uma fila esperando, como num rack de produção.
+    for (const server of this.sim) {
+      for (const gpu of server.gpus) {
+        if (this.rand() < 0.85) {
+          const job = this.makeJob();
+          job.progress = this.rand() * 0.8;
+          gpu.job = job;
+          gpu.load = job.intensity;
+          gpu.temp = 34 + job.intensity * 0.42;
+          gpu.vram = job.vram;
+          gpu.fan = clamp((gpu.temp - 34) / 38, 0.14, 1);
+        }
+      }
+    }
+    for (let i = 0; i < 5; i++) this.pending.push(this.makeJob());
+    this.publish();
     this.loop = new SimLoop(this.host.nativeElement, this.zone, (t, dt) => this.frame(t, dt), 12);
     this.loop.start();
   }
@@ -190,9 +208,9 @@ export class PhysicalServerRackComponent implements AfterViewInit, OnDestroy {
 
   private frame(t: number, dt: number): void {
     // A fila é reabastecida indefinidamente: a simulação nunca "termina" para recomeçar.
-    if (t >= this.nextJobAt && this.pending.length < 5) {
+    if (t >= this.nextJobAt && this.pending.length < 7) {
       this.pending.push(this.makeJob());
-      this.nextJobAt = t + Math.max(0.4, 1.15 - 0.95 * Math.cos(t * 0.13)) + this.rand() * 0.3;
+      this.nextJobAt = t + Math.max(0.35, 0.95 - 0.6 * Math.cos(t * 0.13)) + this.rand() * 0.3;
     }
 
     let total = 95;
@@ -211,7 +229,7 @@ export class PhysicalServerRackComponent implements AfterViewInit, OnDestroy {
           gpu.job.progress += dt / gpu.job.duration;
           if (gpu.job.progress >= 1) {
             gpu.job = null;
-            gpu.idleUntil = t + 1.2 + this.rand() * 2.8;
+            gpu.idleUntil = t + 0.4 + this.rand() * 0.8;
             this.doneCount++;
           }
         }
@@ -254,6 +272,7 @@ export class PhysicalServerRackComponent implements AfterViewInit, OnDestroy {
   private publish(): void {
     this.servers.set(this.snapshot());
     this.queue.set(this.pending.slice(0, 3).map((j) => ({ id: j.id, key: j.key })));
+    this.queueExtra.set(Math.max(0, this.pending.length - 3));
     this.done.set(this.doneCount);
     this.totalPower.set(this.rackPower / 1000);
   }

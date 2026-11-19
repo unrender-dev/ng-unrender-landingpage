@@ -3,7 +3,6 @@ import {
   Component,
   ElementRef,
   Injector,
-  Input,
   OnDestroy,
   OnInit,
   ViewChild,
@@ -518,16 +517,6 @@ const MIN_TYPING_MS = 650;
   `],
 })
 export class ChatWidgetComponent implements OnInit, OnDestroy {
-  /**
-   * Instrução de sistema que orienta a IA (pode vir do componente pai).
-   * A regra de idioma — responder no idioma atual do site — é acrescentada a cada envio.
-   * Modelos prontos: `ChatbotService.SYSTEM_MESSAGES.*`.
-   */
-  @Input() systemMessage: string = ChatbotService.SYSTEM_MESSAGES.DEFAULT;
-
-  /** Chave da API do Gemini; quando informada, substitui a configurada no serviço. */
-  @Input() apiKey: string = '';
-
   @ViewChild('thread') private threadRef?: ElementRef<HTMLDivElement>;
   @ViewChild('messageInput') private inputRef?: ElementRef<HTMLTextAreaElement>;
 
@@ -541,7 +530,6 @@ export class ChatWidgetComponent implements OnInit, OnDestroy {
   readonly suggestionKeys: Key[] = ['s1', 's2', 's3'];
 
   public currentMessage = '';
-  public systemMessageTemplates: typeof ChatbotService.SYSTEM_MESSAGES;
 
   private nextId = 1;
   private request: Subscription | null = null;
@@ -549,9 +537,7 @@ export class ChatWidgetComponent implements OnInit, OnDestroy {
   private readonly reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  constructor(private chatService: ChatbotService, private sanitizer: DomSanitizer) {
-    this.systemMessageTemplates = this.chatService.getSystemMessageTemplates();
-  }
+  constructor(private chatService: ChatbotService, private sanitizer: DomSanitizer) {}
 
   /** Última pergunta e última resposta (mantidos para quem lê o estado do widget de fora). */
   get latestUserMessage(): string {
@@ -562,19 +548,10 @@ export class ChatWidgetComponent implements OnInit, OnDestroy {
     return [...this.messages()].reverse().find((m) => m.role === 'assistant' && !m.pending && !m.errorKey)?.content ?? '';
   }
 
-  ngOnInit(): void {
-    if (this.apiKey) {
-      this.chatService.setApiKey(this.apiKey);
-    }
-  }
+  ngOnInit(): void {}
 
   ngOnDestroy(): void {
     this.cancelRequest();
-  }
-
-  /** Troca a instrução de sistema por um dos modelos prontos. */
-  public setSystemMessage(key: keyof typeof ChatbotService.SYSTEM_MESSAGES): void {
-    this.systemMessage = this.chatService.getSystemMessage(key);
   }
 
   onInputFocus(): void {}
@@ -644,8 +621,8 @@ export class ChatWidgetComponent implements OnInit, OnDestroy {
 
     let response$: Observable<string>;
     try {
-      const system = this.chatService.localizeSystemMessage(this.systemMessage, this.i18n.lang());
-      response$ = this.chatService.getGeminiResponse(system, history);
+      // A instrução de sistema e a chave da IA ficam no servidor (SGA); aqui vai só a conversa.
+      response$ = this.chatService.ask(history, this.i18n.lang());
     } catch (err) {
       fail(err);
       return;

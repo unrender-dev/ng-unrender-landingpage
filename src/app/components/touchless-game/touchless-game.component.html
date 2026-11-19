@@ -1,0 +1,157 @@
+<div class="tg">
+  <div #stage class="tg-stage" [class.is-live]="inGame() || phase() === 'over'" [class.is-playing]="inGame()"
+    [class.is-pointer]="mode() === 'pointer'" [class.is-full]="fullscreenOn()" [class.is-pseudo-full]="pseudoFull()"
+    [class.is-flash]="bombFlash()" role="group" [attr.aria-label]="t('stageLabel')">
+    <!-- Alimenta só a análise e o canvas; o jogador se vê desenhado no canvas, espelhado. -->
+    <video #video class="tg-video" autoplay muted playsinline aria-hidden="true"></video>
+    <canvas #canvas class="tg-canvas" aria-hidden="true" (pointermove)="onPointerMove($event)"
+      (pointerdown)="onPointerMove($event)"></canvas>
+
+    @if (!inGame() && phase() !== 'over') {
+    <!-- Decoração do estado parado: bolhas, estrela e bomba do jogo -->
+    <div class="tg-deco" aria-hidden="true">
+      <span class="tg-deco__orb tg-deco__orb--a"></span>
+      <span class="tg-deco__orb tg-deco__orb--b"></span>
+      <span class="tg-deco__orb tg-deco__orb--c"></span>
+      <span class="tg-deco__star"><i class="fa-solid fa-star"></i></span>
+      <span class="tg-deco__bomb"><i class="fa-solid fa-xmark"></i></span>
+    </div>
+    }
+
+    @switch (phase()) {
+    @case ('starting') {
+    <div class="tg-center">
+      <div class="tg-status" role="status">
+        <span class="tg-spinner" aria-hidden="true"></span>
+        <span>{{ t('starting') }}</span>
+      </div>
+    </div>
+    }
+
+    @case ('ready') {
+    <div class="tg-center tg-center--ready">
+      <p class="tg-ready-title">{{ t('getReady') }}</p>
+      <p class="tg-countdown" aria-live="assertive">{{ countdown() }}</p>
+      <p class="tg-chip">{{ mode() === 'camera' ? t('readyHint') : t('readyHintPointer') }}</p>
+    </div>
+    }
+
+    @case ('over') {
+    <div class="tg-panel tg-panel--over" role="dialog" aria-modal="false" [attr.aria-label]="t('over')">
+      <p class="tg-kicker">{{ t('over') }}</p>
+      <p class="tg-final">{{ t('yourScore', { score: score() }) }}</p>
+      @if (isNewBest()) {
+      <p class="tg-badge"><i class="fa-solid fa-trophy" aria-hidden="true"></i> {{ t('newBest') }}</p>
+      } @else {
+      <p class="tg-best">{{ t('best') }}: {{ best() }}</p>
+      }
+      <ul class="tg-stats">
+        <li><span class="tg-dot tg-dot--orb" aria-hidden="true"></span>{{ t('statOrbs') }} <strong>{{ stats().orbs }}</strong></li>
+        <li><i class="fa-solid fa-star tg-ico-star" aria-hidden="true"></i>{{ t('statStars') }} <strong>{{ stats().stars }}</strong></li>
+        <li><span class="tg-dot tg-dot--bomb" aria-hidden="true"></span>{{ t('statBombs') }} <strong>{{ stats().bombs }}</strong></li>
+      </ul>
+      <p class="tg-pitch"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> {{ t('eventPitch') }}</p>
+      <div class="tg-actions">
+        <button type="button" class="tg-btn" (click)="playAgain()">
+          <i class="fa-solid fa-rotate-right" aria-hidden="true"></i> {{ t('again') }}
+        </button>
+        <button type="button" class="tg-btn tg-btn--ghost" (click)="stop()">
+          <i class="fa-solid fa-stop" aria-hidden="true"></i> {{ t('stop') }}
+        </button>
+      </div>
+      <p class="tg-sr" aria-live="polite">{{ t('finalAnnounce', { score: score() }) }}</p>
+    </div>
+    }
+
+    }
+
+    @if (phase() === 'idle' || phase() === 'error') {
+    <!-- Instruções de posicionamento e botões -->
+    <div class="tg-panel">
+      <p class="tg-kicker"><i class="fa-solid fa-hand" aria-hidden="true"></i> {{ t('howTo') }}</p>
+      <h5 class="tg-title">{{ t('title') }}</h5>
+      <p class="tg-lead">{{ t('lead') }}</p>
+      <ol class="tg-steps">
+        <li>
+          <span class="tg-step-ico" aria-hidden="true">
+            <i [class]="isTouchDevice ? 'fa-solid fa-mobile-screen-button' : 'fa-solid fa-laptop'"></i>
+          </span>
+          <span>{{ isTouchDevice ? t('stepPhone') : t('stepDesktop') }}</span>
+        </li>
+        <li>
+          <span class="tg-step-ico" aria-hidden="true"><i class="fa-solid fa-person"></i></span>
+          <span>{{ t('stepDistance') }}</span>
+        </li>
+        <li>
+          <span class="tg-step-ico" aria-hidden="true"><i class="fa-solid fa-lightbulb"></i></span>
+          <span>{{ t('stepLight') }}</span>
+        </li>
+        <li>
+          <span class="tg-step-ico" aria-hidden="true"><i class="fa-solid fa-hand-sparkles"></i></span>
+          <span>{{ t('stepPlay') }}</span>
+        </li>
+      </ol>
+
+      @if (phase() === 'error') {
+      <div class="tg-status tg-status--error" role="alert">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span>{{ errorText() }}</span>
+      </div>
+      }
+
+      <div class="tg-actions">
+        <button type="button" class="tg-btn" (click)="start('camera')">
+          <i class="fa-solid fa-video" aria-hidden="true"></i>
+          {{ phase() === 'error' ? ct('retry') : t('play') }}
+        </button>
+        <button type="button" class="tg-btn tg-btn--ghost" (click)="start('pointer')">
+          <i class="fa-solid fa-arrow-pointer" aria-hidden="true"></i> {{ t('playPointer') }}
+        </button>
+      </div>
+      @if (best() > 0) {
+      <p class="tg-best">{{ t('best') }}: {{ best() }}</p>
+      }
+    </div>
+    }
+
+    @if (inGame()) {
+    <!-- Placar -->
+    <div class="tg-hud">
+      <div class="tg-hud__box">
+        <span class="tg-hud__label">{{ t('score') }}</span>
+        <span class="tg-hud__value">{{ score() }}</span>
+      </div>
+      <div class="tg-hud__box tg-hud__box--time">
+        <span class="tg-hud__label">{{ t('time') }}</span>
+        <span class="tg-hud__value">{{ secondsLeft() }}s</span>
+        <span class="tg-hud__bar" aria-hidden="true"><span [style.width.%]="(secondsLeft() / roundSeconds) * 100"></span></span>
+      </div>
+      @if (multiplier() > 1) {
+      <div class="tg-hud__box tg-hud__box--combo">
+        <span class="tg-hud__label">{{ t('combo') }}</span>
+        <span class="tg-hud__value">x{{ multiplier() }}</span>
+      </div>
+      }
+      <div class="tg-hud__tools">
+        <button type="button" class="tg-icon-btn" (click)="toggleMute()" [attr.aria-label]="muted() ? t('unmute') : t('mute')"
+          [attr.title]="muted() ? t('unmute') : t('mute')">
+          <i [class]="muted() ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high'" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="tg-icon-btn" (click)="toggleFullscreen()"
+          [attr.aria-label]="fullscreenOn() ? t('exitFullscreen') : t('fullscreen')"
+          [attr.title]="fullscreenOn() ? t('exitFullscreen') : t('fullscreen')">
+          <i [class]="fullscreenOn() ? 'fa-solid fa-compress' : 'fa-solid fa-expand'" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="tg-icon-btn" (click)="stop()" [attr.aria-label]="t('stop')" [attr.title]="t('stop')">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+    }
+  </div>
+
+  <p class="tg-privacy">
+    <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+    <span>{{ ct('privacy') }}</span>
+  </p>
+</div>

@@ -41,6 +41,24 @@ button {
   }
 }
 
+// ───────── Marca ─────────
+// Pode encolher (os botões à direita não), para nunca invadir o seletor de idioma.
+.brand {
+  min-width: 0;
+  margin-right: 0.5rem;
+}
+
+.brand__logo {
+  flex-shrink: 0;
+}
+
+.brand__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 // ───────── Seletor de idioma ─────────
 .lang {
   position: relative;
@@ -194,6 +212,27 @@ button {
 
 @media (min-width: 1024px) {
   .mobile-menu {
+    display: none;
+  }
+}
+
+// Celulares estreitos (320–359 px): logo e seletor mais compactos para caber tudo numa linha.
+@media (max-width: 359.98px) {
+  .brand__logo {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .brand__name {
+    font-size: 1.125rem;
+  }
+
+  .lang__button {
+    gap: 0.3rem;
+    padding: 0 0.625rem;
+  }
+
+  .lang__caret {
     display: none;
   }
 }

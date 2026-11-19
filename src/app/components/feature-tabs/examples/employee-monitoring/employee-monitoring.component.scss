@@ -208,10 +208,14 @@ $green: #16a34a;
     flex-shrink: 0;
   }
 
+  // Uma linha só: o card mantém a mesma altura em qualquer app/idioma e o aviso
+  // de bloqueio (que cobre o rodapé) nunca encosta no nome do app.
   .app-name {
     flex: 1;
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .chip {
@@ -289,11 +293,12 @@ $green: #16a34a;
   position: absolute;
   left: 8px;
   right: 8px;
-  bottom: 8px;
+  bottom: 6px;
+  min-height: 30px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: 8px;
   background: #991b1b;
   color: #fff;
@@ -312,7 +317,9 @@ $green: #16a34a;
 
   span {
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

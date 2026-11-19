@@ -47,6 +47,11 @@ import {
 import { I18nService } from '../../../../i18n/i18n.service';
 import { CameraService } from '../../../../services/camera.service';
 import { ABORT, Showcase, Step } from '../hardware-demos/showcase';
+import { ProdutosPosModalService } from '../../../../services/produtos-pos-modal.service';
+
+/** Totem interativo da loja: o preço impresso na foto vem dele. */
+const TOTEM_PRODUCT_ID = 'totem-interativo-55';
+const TOTEM_FALLBACK = { price: 3199, installment: 299 };
 import { I18N } from './self-service-kiosk.i18n';
 
 type Key = keyof (typeof I18N)['pt'];
@@ -107,6 +112,7 @@ export class SelfServiceKioskComponent implements AfterViewInit, OnDestroy {
   readonly i18n = inject(I18nService);
   readonly t = this.i18n.scope(I18N);
   private readonly cameraService = inject(CameraService);
+  private readonly posModal = inject(ProdutosPosModalService);
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
 
   @ViewChild('video') private videoRef?: ElementRef<HTMLVideoElement>;
@@ -163,7 +169,12 @@ export class SelfServiceKioskComponent implements AfterViewInit, OnDestroy {
   get polaroidOfferText(): string {
     // Espaço fino (U+202F) do separador de milhar em francês não existe na fonte: usa o comum.
     const money = (value: number) => this.i18n.money(value, 0).replace(/\u202f/g, '\u00a0');
-    return this.t('offer', { price: money(3199), installment: money(299) });
+    // Preço do totem vem do catálogo da loja (sincronizado com o SGA CTRLB); os valores
+    // fixos só valem enquanto o catálogo não tem o produto.
+    const totem = this.posModal.produtoPorId(TOTEM_PRODUCT_ID);
+    const price = totem?.priceSaleNumeric || TOTEM_FALLBACK.price;
+    const installment = totem?.priceRentNumeric || TOTEM_FALLBACK.installment;
+    return this.t('offer', { price: money(price), installment: money(installment) });
   }
 
   private readonly showcase = new Showcase(

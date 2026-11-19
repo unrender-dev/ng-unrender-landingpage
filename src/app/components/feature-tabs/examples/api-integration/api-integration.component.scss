@@ -58,32 +58,33 @@
   transition: opacity 0.45s ease;
 }
 
-.api-flow {
-  transition: opacity 0.45s ease;
+.api-link.is-off .api-line-live {
+  opacity: 0;
 }
 
-.api-link.is-off {
-  .api-line-live,
-  .api-flow {
-    opacity: 0;
-  }
+/* Conexão acesa enquanto um evento passa por ela */
+.api-link.is-hot .api-line-live {
+  stroke: var(--api-accent);
+  stroke-width: 0.8;
+  opacity: 1;
+  transition-duration: 0.1s;
 }
 
-/* Os pulsos nascem e somem escondidos sob o hub e sob o ícone do nó: o loop não tem emenda. */
+/* Um pacote por evento: entrada viaja do serviço para o hub, saída do hub para o serviço. */
 .api-packet {
   opacity: 0;
-  animation: api-out var(--api-cycle) cubic-bezier(0.45, 0, 0.55, 1) infinite;
-  animation-delay: calc(var(--delay) * var(--api-cycle));
+  animation: var(--api-anim, api-in) 0.9s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+  filter: drop-shadow(0 0 1.2px rgba(249, 145, 38, 0.9));
 }
 
 .api-packet-out {
   fill: var(--api-ink);
+  --api-anim: api-out;
 }
 
 .api-packet-in {
   fill: var(--api-accent);
-  animation-name: api-in;
-  animation-delay: calc((var(--delay) - 0.5) * var(--api-cycle));
+  --api-anim: api-in;
 }
 
 @keyframes api-out {
@@ -91,8 +92,8 @@
     transform: translate(0, 0);
     opacity: 0;
   }
-  14%,
-  86% {
+  12%,
+  88% {
     opacity: 1;
   }
   100% {
@@ -106,8 +107,8 @@
     transform: translate(calc(var(--dx) * 1px), calc(var(--dy) * 1px));
     opacity: 0;
   }
-  14%,
-  86% {
+  12%,
+  88% {
     opacity: 1;
   }
   100% {
@@ -134,6 +135,15 @@
   display: grid;
   place-items: center;
   font-size: clamp(1.1rem, 5cqw, 1.6rem);
+
+  img {
+    width: 62%;
+    height: 62%;
+    object-fit: contain;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 3px;
+  }
 }
 
 .api-hub-pulse {
@@ -180,7 +190,7 @@
   position: absolute;
   z-index: 2;
   transform: translate(-50%, -50%);
-  width: max(44px, 21cqw);
+  width: max(44px, 18cqw);
   padding: 0;
   border: none;
   background: none;
@@ -195,9 +205,9 @@
   // O nó é centrado no ícone: o rótulo fica "pendurado" abaixo sem deslocar o centro.
   .api-node-label {
     position: absolute;
-    top: calc(50% + clamp(22px, 6cqw, 28px) + 4px);
+    top: calc(50% + clamp(20px, 5.5cqw, 26px) + 4px);
     left: 50%;
-    width: max(100%, 30cqw);
+    width: max(100%, 26cqw);
     transform: translateX(-50%);
   }
 
@@ -223,7 +233,7 @@
 
 .api-node-icon {
   position: relative;
-  width: clamp(44px, 12cqw, 56px);
+  width: clamp(40px, 11cqw, 52px);
   aspect-ratio: 1;
   border-radius: 14px;
   background: #ffffff;
@@ -276,8 +286,35 @@
   transition: background-color 0.35s ease;
 }
 
+.api-node-queue {
+  position: absolute;
+  bottom: -7px;
+  right: -9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #b45309;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  border: 2px solid #ffffff;
+  animation: api-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes api-pop {
+  from {
+    transform: scale(0.4);
+  }
+  to {
+    transform: none;
+  }
+}
+
 .api-node-label {
-  font-size: clamp(0.6875rem, 2.7cqw, 0.8125rem);
+  font-size: clamp(0.625rem, 2.5cqw, 0.78rem);
   font-weight: 600;
   line-height: 1.2;
   text-align: center;
@@ -362,22 +399,195 @@
   background: var(--api-ok);
 }
 
-.api-tags {
-  list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.api-stats {
+  margin: 12px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 
-  li {
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: #f1edf5;
-    color: var(--api-ink);
-    font-size: 0.75rem;
-    font-weight: 600;
+  div {
+    background: #f6f3f9;
+    border-radius: 10px;
+    padding: 6px 8px;
+    min-width: 0;
   }
+
+  dt {
+    font-size: 0.66rem;
+    color: var(--api-muted);
+    line-height: 1.2;
+  }
+
+  dd {
+    margin: 2px 0 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--api-ink);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.api-stream {
+  margin-top: 12px;
+  border: 1px solid #e8e3ee;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fcfbfd;
+}
+
+.api-stream-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--api-muted);
+  border-bottom: 1px solid #eee9f3;
+}
+
+.api-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: api-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes api-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.api-events {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  height: 17.5rem;
+  overflow: hidden;
+  // a linha mais antiga some aos poucos em vez de aparecer cortada
+  -webkit-mask-image: linear-gradient(#000 82%, transparent);
+  mask-image: linear-gradient(#000 82%, transparent);
+}
+
+.api-event {
+  padding: 6px 10px;
+  border-bottom: 1px dashed #eee9f3;
+  animation: api-row 0.35s ease-out;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &.is-queued {
+    background: #fff7ed;
+  }
+
+  &.is-flushed {
+    background: #ecfdf5;
+  }
+}
+
+@keyframes api-row {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.api-event-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.7rem;
+}
+
+.api-method {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #ffffff;
+  background: #4f46e5;
+
+  &[data-m='GET'] {
+    background: #0f766e;
+  }
+
+  &[data-m='PUT'] {
+    background: #a16207;
+  }
+}
+
+.api-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  color: var(--api-ink);
+}
+
+.api-code {
+  flex: none;
+  font-weight: 800;
+  color: var(--api-ok);
+}
+
+.api-ms {
+  flex: none;
+  color: var(--api-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.api-event-desc {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--api-muted);
+  overflow-wrap: anywhere;
+
+  b {
+    color: var(--api-ink);
+  }
+}
+
+.api-time {
+  margin-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.api-dir {
+  margin-right: 4px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(249, 145, 38, 0.16);
+  color: #8a4a05;
+
+  &[data-d='out'] {
+    background: #ece9f2;
+    color: var(--api-ink);
+  }
+}
+
+.api-info .api-paths-note {
+  margin: 0;
+  padding: 5px 10px;
+  font-size: 0.66rem;
+  border-top: 1px solid #eee9f3;
 }
 
 .api-info .api-hint {
@@ -385,7 +595,7 @@
   font-size: 0.8125rem;
 }
 
-@container (min-width: 720px) {
+@container (min-width: 760px) {
   .api-card {
     flex-direction: row;
     align-items: stretch;
@@ -398,7 +608,7 @@
   }
 
   .api-info {
-    flex: 0 0 300px;
+    flex: 0 0 360px;
     border-top: none;
     border-left: 1px solid #e8e3ee;
     display: flex;
@@ -410,6 +620,7 @@
 
 .api-card.is-paused {
   .api-packet,
+  .api-live-dot,
   .api-hub-pulse {
     animation-play-state: paused;
   }
@@ -417,14 +628,16 @@
 
 @media (prefers-reduced-motion: reduce) {
   .api-packet,
+  .api-live-dot,
+  .api-event,
+  .api-node-queue,
   .api-hub-pulse,
   .api-node.is-burst .api-node-icon::after {
     animation: none;
   }
 
   .api-node-icon,
-  .api-line-live,
-  .api-flow {
+  .api-line-live {
     transition: none;
   }
 }

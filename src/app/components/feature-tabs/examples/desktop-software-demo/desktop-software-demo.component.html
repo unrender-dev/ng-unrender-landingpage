@@ -103,6 +103,20 @@
           }
         </div>
 
+        <!-- Notificação nativa do sistema (posição muda conforme o SO) -->
+        <div class="note" [class.shown]="noteShown" [attr.data-tone]="note?.tone" role="status" aria-live="polite">
+          @if (note) {
+            <span class="note-ico" aria-hidden="true"><i [class]="note.icon"></i></span>
+            <span class="note-txt">
+              <b>SGA CTRLB · {{ noteTime() }}</b>
+              <span>{{ t(note.key) }}</span>
+            </span>
+            <button type="button" class="note-x" (click)="dismissNote()" [attr.aria-label]="t('noteClose')" [attr.tabindex]="noteShown ? 0 : -1">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          }
+        </div>
+
         <button type="button" class="logo-overlay" [class.shown]="showCtrlBImage" [attr.inert]="showCtrlBImage ? null : ''"
           (click)="showCtrlBImage = false" [attr.aria-label]="t('winClose')">
           <img src="/ctrlb-logo.png" [alt]="t('logoAlt')" />

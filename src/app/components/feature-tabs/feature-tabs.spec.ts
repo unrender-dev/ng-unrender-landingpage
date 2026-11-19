@@ -95,6 +95,19 @@ describe('FeatureTabs', () => {
     expect(feature('custom-systems', 'pEventTotem')?.price).toBe(3199);
   });
 
+  it('should offer the playable touchless camera game in every tab', async () => {
+    for (const itemId of ['event-games', 'event-totems', 'unrender-games']) {
+      const f = feature(itemId, 'touchlessGame');
+      expect(f).withContext(itemId).toBeTruthy();
+      expect(await f!.loadComponent!()).withContext(itemId).toBeDefined();
+    }
+    expect(DEVELOPMENT_ITEMS.some((i) => i.id === 'event-games')).toBeTrue();
+    expect(INFRASTRUCTURE_ITEMS.some((i) => i.id === 'event-totems')).toBeTrue();
+    for (const key of ['faceCapture', 'objectAi']) {
+      expect(feature('event-games', key)).withContext(key).toBeTruthy();
+    }
+  });
+
   it('should not use AI-generated or third-party images in feature rows', () => {
     const banned = ['/features/carousel/', 'commai', 'comma4', 'echoshow', 'totem_interativo_touch', 'event-camera-photos'];
     const images = ALL_ITEMS.flatMap((it) => it.features)

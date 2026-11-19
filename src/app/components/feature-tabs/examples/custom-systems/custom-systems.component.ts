@@ -12,7 +12,7 @@ import {
 import { I18nService, Params } from '../../../../i18n/i18n.service';
 import { SimLoop, clamp } from '../infra-shared/sim-loop';
 import { I18N } from './custom-systems.i18n';
-import { EDGE_SCENE_RATIO, EdgeAiScene, EdgeLabels } from './edge-ai-scene';
+import { EDGE_SCENE_RATIO, EdgeAiScene, EdgeCrossing, EdgeLabels, Kind } from './edge-ai-scene';
 
 type Key = keyof (typeof I18N)['pt'];
 type HubTab = 'ev' | 'home' | 'solar' | 'thermostat';
@@ -114,6 +114,18 @@ export class CustomSystemsComponent implements OnInit, AfterViewInit, OnDestroy 
   readonly inScene = signal(0);
   readonly counted = signal(1284);
   readonly rejected = signal(37);
+  /** Últimos volumes que cruzaram a linha (o mais recente primeiro). */
+  readonly edgeEvents = signal<(EdgeCrossing & { id: number; at: Date; dock: number })[]>([
+    // Os últimos volumes antes da demo entrar na tela: o painel já abre em regime.
+    { id: -1, n: 1284, kind: 'box', damaged: false, conf: 0.94, at: new Date(Date.now() - 4_000), dock: 1 },
+    { id: -2, n: 1283, kind: 'box', damaged: true, conf: 0.91, at: new Date(Date.now() - 9_000), dock: 4 },
+    { id: -3, n: 1282, kind: 'envelope', damaged: false, conf: 0.96, at: new Date(Date.now() - 13_000), dock: 3 },
+  ]);
+  /** Volumes por minuto (média móvel) e confiança média das detecções. */
+  readonly perMinute = signal(13);
+  readonly accuracy = signal(0.947);
+  private edgeEventId = 0;
+  private crossTimes: number[] = [];
   private readonly edgeCanvas = viewChild<ElementRef<HTMLCanvasElement>>('edgeCanvas');
   private readonly scene = new EdgeAiScene();
   private edgeLabels: EdgeLabels = this.buildLabels();
@@ -177,6 +189,12 @@ export class CustomSystemsComponent implements OnInit, AfterViewInit, OnDestroy 
   pct(v: number): string {
     return this.i18n.number(v, { style: 'percent', maximumFractionDigits: 0 });
   }
+  eventTime(d: Date): string {
+    return this.i18n.date(d, TIME_HMS);
+  }
+  kindLabel(kind: Kind): string {
+    return this.t(kind === 'box' ? 'clsBox' : kind === 'envelope' ? 'clsEnvelope' : 'clsCrate');
+  }
   logTime(e: LogEntry): string {
     return this.i18n.date(e.time, TIME_HMS);
   }
@@ -200,6 +218,19 @@ export class CustomSystemsComponent implements OnInit, AfterViewInit, OnDestroy 
 
     if (this.type === 'edge-ai') {
       const stats = this.ctx && this.cssW ? this.scene.draw(this.ctx, this.cssW, this.dpr, t, this.edgeLabels) : null;
+      if (stats?.crossed.length) {
+        for (const c of stats.crossed) {
+          this.crossTimes.push(t);
+          // Doca de destino estável por volume (1–4); volume avariado vai para conferência.
+          const dock = 1 + (c.n % 4);
+          this.edgeEvents.update((list) => [{ ...c, id: ++this.edgeEventId, at: new Date(), dock }, ...list].slice(0, 4));
+          this.accuracy.update((a) => a * 0.9 + c.conf * 0.1);
+        }
+        this.crossTimes = this.crossTimes.filter((x) => t - x < 60);
+        // Começa no ritmo de regime da esteira e passa a refletir o que cruzou de fato.
+        const span = Math.min(60, Math.max(20, t));
+        this.perMinute.set(Math.round(t < 20 ? 13 : (this.crossTimes.length / span) * 60));
+      }
       if (stats && this.due(dt, 0.25)) {
         this.inScene.set(stats.inScene);
         this.counted.set(stats.counted);

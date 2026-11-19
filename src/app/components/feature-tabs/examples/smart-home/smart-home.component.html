@@ -97,6 +97,27 @@
           <span class="sh-scan" [class.is-on]="scanningRoom() === 'office'"><i></i><b>{{ t('scanning') }}</b></span>
         </div>
       </div>
+
+      <!-- Energia e ambiente: derivados do estado dos aparelhos -->
+      @let e = energy();
+      <dl class="sh-stats">
+        <div>
+          <dt><fa-icon [icon]="faBolt"></fa-icon> {{ t('stPower') }}</dt>
+          <dd>{{ i18n.number(e.kw, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }} <small>kW</small></dd>
+        </div>
+        <div>
+          <dt><fa-icon [icon]="faTemperatureHalf"></fa-icon> {{ t('stIndoor') }}</dt>
+          <dd>{{ i18n.number(e.indoor, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }} <small>°C · {{ e.humidity }}%</small></dd>
+        </div>
+        <div>
+          <dt><fa-icon [icon]="faPlug"></fa-icon> {{ t('stOn') }}</dt>
+          <dd>{{ e.onCount }} <small>/ 8</small></dd>
+        </div>
+        <div>
+          <dt><fa-icon [icon]="faPiggyBank"></fa-icon> {{ t('stSavings') }}</dt>
+          <dd>{{ i18n.money(e.savings, 0) }} <small>{{ t('perMonth') }}</small></dd>
+        </div>
+      </dl>
     </div>
 
     <!-- Controles -->

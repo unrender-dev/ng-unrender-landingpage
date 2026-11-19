@@ -61,6 +61,22 @@
           </ul>
 
           <div class="ca-cart-foot">
+            <div class="ca-methods" role="radiogroup" [attr.aria-label]="t('metodo')">
+              @for (m of metodos; track m.id) {
+              <button
+                type="button"
+                role="radio"
+                class="ca-method"
+                [class.is-on]="metodo() === m.id"
+                [attr.aria-checked]="metodo() === m.id"
+                [disabled]="fase() !== 'livre'"
+                (click)="escolherMetodo(m.id)"
+              >
+                <fa-icon [icon]="m.icon" aria-hidden="true"></fa-icon>
+                <span>{{ t(m.id) }}</span>
+              </button>
+              }
+            </div>
             <div class="ca-total">
               <span>{{ t('total') }}</span>
               <strong>{{ i18n.money(total()) }}</strong>
@@ -128,7 +144,7 @@
                   <span>TOTAL</span>
                   <span>{{ i18n.money(r.total) }}</span>
                 </div>
-                <div class="cl cl-sm">{{ t('pagoPix') }}</div>
+                <div class="cl cl-sm">{{ rotuloPago(r.metodo) }}</div>
                 <div class="cl cl-bar"></div>
                 <div class="cl cl-sm">{{ t('obrigado') }}</div>
                 <div class="cl cl-sm cl-mute">{{ t('semValor') }}</div>
@@ -155,6 +171,19 @@
 
           <!-- Bandeja de cupons (frente, cobre a base dos cupons) -->
           <div class="ca-tray-front"><fa-icon [icon]="faReceipt"></fa-icon></div>
+        </div>
+      </div>
+
+      <!-- Gaveta de dinheiro ligada na impressora (RJ11): abre no pagamento em dinheiro -->
+      <div class="ca-drawer" [class.is-open]="gaveta()" aria-hidden="true">
+        <div class="ca-drawer-tray">
+          <span class="ca-bill"></span><span class="ca-bill"></span><span class="ca-bill"></span>
+          <span class="ca-coin"></span><span class="ca-coin"></span><span class="ca-coin"></span>
+        </div>
+        <div class="ca-drawer-front">
+          <span class="ca-drawer-lock"></span>
+          <span class="ca-drawer-label">{{ gaveta() ? t('gavetaAberta') : t('gaveta') }}</span>
+          <span class="ca-drawer-cable"></span>
         </div>
       </div>
 
@@ -192,7 +221,11 @@
         (click)="posModal.abrirDetalhe(hw.id)"
       >
         <span class="ca-hw-top">
+          @if (hw.produto.image) {
+          <img class="ca-hw-img" [src]="hw.produto.image" alt="" loading="lazy" decoding="async" />
+          } @else {
           <fa-icon [icon]="hw.icon" aria-hidden="true"></fa-icon>
+          }
           @if (hw.produto.inStock) {
           <span class="ca-hw-stock">{{ t('emEstoque') }}</span>
           }

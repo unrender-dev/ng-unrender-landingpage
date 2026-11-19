@@ -369,8 +369,9 @@ $mono: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
 
 .ca-cart-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 10px;
   border-top: 1px solid #e2e8f0;
   background: #f1f5f9;
@@ -449,6 +450,177 @@ $mono: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
   }
 }
 
+// Forma de pagamento (segmentado)
+.ca-methods {
+  flex: 1 1 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: #e2e8f0;
+}
+
+.ca-method {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 40px;
+  padding: 4px 2px;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+
+  fa-icon {
+    font-size: 13px;
+  }
+
+  &:hover:not(:disabled) {
+    color: #0f172a;
+  }
+
+  &.is-on {
+    background: #fff;
+    color: var(--ca-purple);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+
+    fa-icon {
+      color: var(--ca-accent);
+    }
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+}
+
+@media (pointer: coarse) {
+  .ca-method {
+    min-height: 44px;
+  }
+}
+
+// ───────────── Gaveta de dinheiro ─────────────
+.ca-drawer {
+  position: relative;
+  width: min(100%, 250px);
+  height: 64px;
+  margin-top: 2px;
+  perspective: 500px;
+}
+
+.ca-drawer-tray {
+  position: absolute;
+  inset: 8px 16px 18px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) repeat(3, 0.55fr);
+  align-items: end;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 6px 6px 0 0;
+  background: #1e293b;
+  transform: translateY(0);
+  opacity: 0;
+  transition:
+    transform 0.45s cubic-bezier(0.2, 1.3, 0.4, 1),
+    opacity 0.2s ease 0.25s;
+
+  .is-open & {
+    transform: translateY(26px);
+    opacity: 1;
+    transition:
+      transform 0.38s cubic-bezier(0.2, 1.4, 0.4, 1),
+      opacity 0.1s ease;
+  }
+}
+
+.ca-bill {
+  height: 22px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #4ade80, #16a34a);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+
+  &:nth-child(2) {
+    background: linear-gradient(180deg, #60a5fa, #2563eb);
+  }
+
+  &:nth-child(3) {
+    background: linear-gradient(180deg, #fbbf24, #d97706);
+  }
+}
+
+.ca-coin {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fde68a, #b45309);
+}
+
+.ca-drawer-front {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #334155, #1e293b);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: transform 0.38s cubic-bezier(0.2, 1.4, 0.4, 1);
+
+  .is-open & {
+    transform: translateY(20px);
+  }
+}
+
+.ca-drawer-lock {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: #94a3b8;
+  box-shadow: inset 0 0 0 3px #475569;
+}
+
+.ca-drawer-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  .is-open & {
+    color: #86efac;
+  }
+}
+
+.ca-drawer-cable {
+  width: 22px;
+  height: 4px;
+  flex: none;
+  border-radius: 2px;
+  background: #0f172a;
+}
+
+.ca-hw-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+}
+
 .ca-spin {
   animation: ca-spin 0.9s linear infinite;
 }
@@ -506,6 +678,10 @@ $mono: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
   }
 
   .ca-pay {
+    flex: none;
+  }
+
+  .ca-methods {
     flex: none;
   }
 }
@@ -1126,7 +1302,10 @@ $mono: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
   .ca-line-remove,
   .ca-cart-list,
   .ca-hint,
-  .ca-auto {
+  .ca-auto,
+  .ca-method,
+  .ca-drawer-tray,
+  .ca-drawer-front {
     transition: none;
   }
 

@@ -18,7 +18,7 @@ const BELT_H = 92;
 const ROLLER = 14;
 const MARGIN = 90;
 
-type Kind = 'box' | 'envelope' | 'crate';
+export type Kind = 'box' | 'envelope' | 'crate';
 
 interface Item {
   kind: Kind;
@@ -41,10 +41,19 @@ export interface EdgeLabels {
   percent: (value: number) => string;
 }
 
+/** Volume que cruzou a linha de contagem neste quadro. */
+export interface EdgeCrossing {
+  n: number;
+  kind: Kind;
+  damaged: boolean;
+  conf: number;
+}
+
 export interface EdgeStats {
   inScene: number;
   counted: number;
   rejected: number;
+  crossed: EdgeCrossing[];
 }
 
 const CARDBOARD = ['#c99a66', '#b98753', '#d6ad78'];
@@ -108,11 +117,14 @@ export class EdgeAiScene {
     const nMax = Math.floor((SPEED * t + MARGIN) / SPACING);
 
     // Contagem: cada volume cruza a linha uma única vez.
+    const crossed: EdgeCrossing[] = [];
     while (this.x(this.countedUpTo + 1, t) > LINE_X) {
       this.countedUpTo++;
       this.counted++;
-      if (this.item(this.countedUpTo).damaged) this.rejected++;
+      const it = this.item(this.countedUpTo);
+      if (it.damaged) this.rejected++;
       this.lastCross = t;
+      crossed.push({ n: this.counted, kind: it.kind, damaged: it.damaged, conf: it.conf });
     }
 
     for (let n = nMax; n >= nMin; n--) this.drawItem(ctx, this.item(n), this.x(n, t));
@@ -137,7 +149,7 @@ export class EdgeAiScene {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
-    return { inScene, counted: this.counted, rejected: this.rejected };
+    return { inScene, counted: this.counted, rejected: this.rejected, crossed };
   }
 
   private drawFloor(ctx: CanvasRenderingContext2D, t: number): void {

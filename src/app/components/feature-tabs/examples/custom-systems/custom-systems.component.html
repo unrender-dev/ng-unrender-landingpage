@@ -263,6 +263,17 @@
         <div class="camera-label"><span class="live-dot"></span>{{ t('live') }}</div>
         <div class="camera-name"><fa-icon [icon]="icons.camera"></fa-icon> {{ t('camName') }}</div>
       </div>
+      <ol class="edge-events" [attr.aria-label]="t('eventsTitle')">
+        @for (e of edgeEvents(); track e.id) {
+        <li class="edge-event" [class.bad]="e.damaged">
+          <span class="ev-time">{{ eventTime(e.at) }}</span>
+          <span class="ev-tag">#{{ num(e.n) }} · {{ e.damaged ? t('clsDamaged') : kindLabel(e.kind) }} · {{ pct(e.conf) }}</span>
+          <span class="ev-route">{{ e.damaged ? t('evDiverted') : t('evDock', { n: e.dock }) }}</span>
+        </li>
+        } @empty {
+        <li class="edge-event muted">{{ t('evWaiting') }}</li>
+        }
+      </ol>
       <p class="sim-note"><fa-icon [icon]="icons.info"></fa-icon> {{ t('simNote') }}</p>
     </div>
     <dl class="ai-stats">
@@ -293,6 +304,14 @@
       <div class="stat-row">
         <dt>{{ t('rejected') }}</dt>
         <dd class="num bad">{{ num(rejected()) }}</dd>
+      </div>
+      <div class="stat-row">
+        <dt>{{ t('perMinute') }}</dt>
+        <dd class="num">{{ perMinute() }}/min</dd>
+      </div>
+      <div class="stat-row">
+        <dt>{{ t('accuracy') }}</dt>
+        <dd class="num">{{ pct(accuracy()) }}</dd>
       </div>
     </dl>
   </div>

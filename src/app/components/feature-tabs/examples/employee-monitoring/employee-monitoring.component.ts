@@ -122,6 +122,8 @@ export class EmployeeMonitoringComponent implements AfterViewInit, OnDestroy {
     this.person('p2', 'Bruno Costa', 'roleSales', [WORK['crm'], WORK['mail'], WORK['sheet']], 88),
     this.person('p3', 'Carla Dias', 'roleLegal', [WORK['docs'], WORK['mail'], WORK['chat']], 81),
     this.person('p4', 'Diego Rocha', 'roleDesign', [WORK['design'], WORK['chat'], WORK['tasks']], 91),
+    this.person('p5', 'Elisa Prado', 'roleFinance', [WORK['sheet'], WORK['mail'], WORK['crm']], 90),
+    this.person('p6', 'Felipe Nunes', 'roleSupport', [WORK['chat'], WORK['tasks'], WORK['mail']], 86),
   ];
   private readonly enabled: Record<PolicyId, boolean> = { social: true, streaming: true, shopping: false, games: true };
   private readonly attempts: Record<PolicyId, number> = { social: 14, streaming: 9, shopping: 6, games: 3 };
@@ -133,7 +135,12 @@ export class EmployeeMonitoringComponent implements AfterViewInit, OnDestroy {
   readonly people = signal<PersonView[]>(this.peopleView(0));
   readonly policies = signal<PolicyView[]>(this.policyView());
   readonly teamFocus = signal(89);
-  readonly log = signal<LogEntry[]>([]);
+  /** Começa com o que aconteceu nos últimos minutos, para o registro não abrir vazio. */
+  readonly log = signal<LogEntry[]>([
+    { id: -1, time: new Date(Date.now() - 38_000), key: 'logBlocked', tone: 'block', person: 'Bruno Costa', subject: PERSONAL.social.key },
+    { id: -2, time: new Date(Date.now() - 95_000), key: 'logPersonal', tone: 'warn', person: 'Elisa Prado', subject: PERSONAL.shopping.key },
+    { id: -3, time: new Date(Date.now() - 170_000), key: 'logBlocked', tone: 'block', person: 'Felipe Nunes', subject: PERSONAL.streaming.key },
+  ]);
 
   private loop?: SimLoop;
   private nextEventAt = 1.5;
@@ -270,7 +277,9 @@ export class EmployeeMonitoringComponent implements AfterViewInit, OnDestroy {
 
   private person(id: string, name: string, role: Key, apps: AppDef[], focus: number): PersonSim {
     const initials = name.split(' ').map((w) => w[0]).join('');
-    return { id, name, initials, role, apps, app: apps[0], base: focus, focus, blocked: 0, returnAt: 0, toast: null, toastUntil: 0 };
+    // Expediente já em andamento: cada pessoa começa com alguns bloqueios no dia.
+    const blocked = Math.floor(this.rand() * 4);
+    return { id, name, initials, role, apps, app: apps[0], base: focus, focus, blocked, returnAt: 0, toast: null, toastUntil: 0 };
   }
 
   private policyName(id: PolicyId): Key {

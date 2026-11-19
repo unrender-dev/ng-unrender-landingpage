@@ -3,6 +3,11 @@ import { dict } from '../../../../../i18n/i18n.service';
 export const I18N = dict({
   pt: {
     title: 'Leitor de código de barras',
+    inputLabel: 'Código (o leitor USB funciona como teclado)',
+    inputPh: 'Digite um EAN e tecle Enter',
+    inputHint: 'Experimente {code} ou um código qualquer',
+    stUnknown: 'Código {code} não cadastrado',
+    add: 'Lançar',
     modeAuto: 'Leitura automática',
     modeManual: 'Leitura manual',
     stWaiting: 'Aguardando produto',
@@ -26,6 +31,11 @@ export const I18N = dict({
   },
   en: {
     title: 'Barcode scanner',
+    inputLabel: 'Code (a USB scanner types like a keyboard)',
+    inputPh: 'Type an EAN and press Enter',
+    inputHint: 'Try {code} or any random code',
+    stUnknown: 'Code {code} is not registered',
+    add: 'Add',
     modeAuto: 'Auto scanning',
     modeManual: 'Manual scanning',
     stWaiting: 'Waiting for item',
@@ -49,6 +59,11 @@ export const I18N = dict({
   },
   es: {
     title: 'Lector de códigos de barras',
+    inputLabel: 'Código (el lector USB funciona como teclado)',
+    inputPh: 'Escribe un EAN y pulsa Enter',
+    inputHint: 'Prueba {code} o cualquier código',
+    stUnknown: 'Código {code} no registrado',
+    add: 'Agregar',
     modeAuto: 'Lectura automática',
     modeManual: 'Lectura manual',
     stWaiting: 'Esperando producto',
@@ -72,6 +87,11 @@ export const I18N = dict({
   },
   fr: {
     title: 'Lecteur de codes-barres',
+    inputLabel: 'Code (le lecteur USB agit comme un clavier)',
+    inputPh: 'Saisissez un EAN puis Entrée',
+    inputHint: 'Essayez {code} ou un code quelconque',
+    stUnknown: 'Code {code} non référencé',
+    add: 'Ajouter',
     modeAuto: 'Lecture automatique',
     modeManual: 'Lecture manuelle',
     stWaiting: 'En attente d’un article',

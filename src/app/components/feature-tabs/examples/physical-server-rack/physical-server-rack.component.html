@@ -100,7 +100,7 @@
           <div class="gpu-top">
             <span class="gpu-name">{{ t('gpu', { n: g.n }) }}</span>
             <span class="gpu-job">{{ g.job ? t(g.job) : (s.state === 'online' ? t('idle') : '—') }}</span>
-            <span class="gpu-prog">{{ g.job ? pct(g.progress) : '' }}</span>
+            <span class="gpu-prog">{{ g.job ? t('progress', { p: pct(g.progress) }) : '' }}</span>
           </div>
           <div class="meter">
             <div class="meter-fill" [style.transform]="'scaleX(' + g.load / 100 + ')'"
@@ -144,6 +144,9 @@
             <li><span class="q-name">{{ t(j.key) }}</span><span class="q-state">{{ t('waiting') }}</span></li>
             } @empty {
             <li class="empty">{{ t('queueEmpty') }}</li>
+            }
+            @if (queueExtra() > 0) {
+            <li class="more">{{ t('queueMore', { n: queueExtra() }) }}</li>
             }
           </ul>
         </div>

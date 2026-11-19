@@ -24,6 +24,7 @@ import {
   faCheese,
   faCircleNotch,
   faCookieBite,
+  faCreditCard,
   faDesktop,
   faHeadset,
   faLemon,
@@ -31,6 +32,7 @@ import {
   faMoneyBillWave,
   faMugHot,
   faPrint,
+  faQrcode,
   faReceipt,
   faStore,
   faTrash,
@@ -43,6 +45,7 @@ import { I18N } from './commercial-automation.component.i18n';
 
 type ProdutoKey = 'cafe' | 'paoQueijo' | 'suco' | 'sanduiche' | 'brownie' | 'agua';
 type Fase = 'livre' | 'imprimindo' | 'cortando';
+type Pagamento = 'pix' | 'cartao' | 'dinheiro';
 
 interface Produto {
   key: ProdutoKey;
@@ -61,7 +64,18 @@ interface Recibo {
   data: Date;
   linhas: (Linha & { subtotal: number })[];
   total: number;
+  metodo: Pagamento;
 }
+
+const METODOS: { id: Pagamento; icon: IconDefinition }[] = [
+  { id: 'pix', icon: faQrcode },
+  { id: 'cartao', icon: faCreditCard },
+  { id: 'dinheiro', icon: faMoneyBillWave },
+];
+/** Forma de pagamento usada pela vitrine em cada pedido do roteiro. */
+const METODO_ROTEIRO: Pagamento[] = ['pix', 'dinheiro', 'cartao', 'dinheiro'];
+/** Tempo que a gaveta fica aberta depois do pulso da impressora (ms). */
+const GAVETA_MS = 2600;
 
 const PRODUTOS: Produto[] = [
   { key: 'cafe', price: 5.5, icon: faMugHot },
@@ -141,6 +155,7 @@ export class CommercialAutomationComponent implements AfterViewInit, OnDestroy {
 
   readonly produtos = PRODUTOS;
   readonly preco = PRECO;
+  readonly metodos = METODOS;
 
   readonly agora = signal(new Date());
   readonly carrinho = signal<Linha[]>([]);
@@ -154,11 +169,15 @@ export class CommercialAutomationComponent implements AfterViewInit, OnDestroy {
   readonly limpando = signal(false);
   readonly acabouDePagar = signal(false);
   readonly impressos = signal(0);
+  readonly metodo = signal<Pagamento>('pix');
+  /** Gaveta de dinheiro aberta (pulso RJ11 da impressora ao pagar em dinheiro). */
+  readonly gaveta = signal(false);
 
   readonly total = computed(() => this.carrinho().reduce((soma, l) => soma + l.qty * PRECO[l.key], 0));
   readonly podePagar = computed(() => this.carrinho().length > 0 && this.fase() === 'livre' && !this.limpando());
 
   readonly status = computed(() => {
+    if (this.gaveta() && this.fase() === 'imprimindo') return this.t('stGaveta');
     if (this.fase() === 'imprimindo') return this.t('stImprimindo');
     if (this.fase() === 'cortando') return this.t('stCortando');
     return this.impressos() > 0 ? this.t('stPronto') : this.t('stPronta');
@@ -191,6 +210,7 @@ export class CommercialAutomationComponent implements AfterViewInit, OnDestroy {
   private timerToque: ReturnType<typeof setTimeout> | null = null;
   private timerLimpar: ReturnType<typeof setTimeout> | null = null;
   private timerPago: ReturnType<typeof setTimeout> | null = null;
+  private timerGaveta: ReturnType<typeof setTimeout> | null = null;
   private relogio: ReturnType<typeof setInterval> | null = null;
   private io: IntersectionObserver | null = null;
   private ro: ResizeObserver | null = null;
@@ -251,7 +271,7 @@ export class CommercialAutomationComponent implements AfterViewInit, OnDestroy {
     this.io?.disconnect();
     this.ro?.disconnect();
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.aoMudarVisibilidade);
-    for (const timer of [this.timerOcioso, this.timerToque, this.timerLimpar, this.timerPago]) {
+    for (const timer of [this.timerOcioso, this.timerToque, this.timerLimpar, this.timerPago, this.timerGaveta]) {
       if (timer) clearTimeout(timer);
     }
     if (this.relogio) clearInterval(this.relogio);
@@ -291,7 +311,9 @@ export class CommercialAutomationComponent implements AfterViewInit, OnDestroy {
       data: new Date(),
       linhas: this.carrinho().map((l) => ({ ...l, subtotal: l.qty * PRECO[l.key] })),
       total: this.total(),
+      metodo: this.metodo(),
     };
+    if (recibo.metodo === 'dinheiro') this.abrirGaveta();
     this.fase.set('imprimindo');
     this.acabouDePagar.set(false);
     this.recibos.update((lista) => [...lista, recibo]);
@@ -299,6 +321,22 @@ export class CommercialAutomationComponent implements AfterViewInit, OnDestroy {
     // O nó do cupom precisa existir antes de a animação começar.
     this.cdr.detectChanges();
     this.zone.runOutsideAngular(() => this.imprimir(recibo.id));
+  }
+
+  escolherMetodo(m: Pagamento): void {
+    if (this.fase() !== 'livre') return;
+    this.metodo.set(m);
+  }
+
+  rotuloPago(m: Pagamento): string {
+    return m === 'pix' ? this.t('pagoPix') : m === 'cartao' ? this.t('pagoCartao') : this.t('pagoDinheiro');
+  }
+
+  /** A impressora manda o pulso pela porta RJ11: a gaveta abre e fecha sozinha depois. */
+  private abrirGaveta(): void {
+    this.gaveta.set(true);
+    if (this.timerGaveta) clearTimeout(this.timerGaveta);
+    this.timerGaveta = setTimeout(() => this.gaveta.set(false), this.reduzir ? 1200 : GAVETA_MS);
   }
 
   /** Interação real do usuário: a vitrine cede o controle e só volta após um tempo ocioso. */
@@ -512,6 +550,7 @@ export class CommercialAutomationComponent implements AfterViewInit, OnDestroy {
       return;
     }
     if (this.fila.length === 0 && this.carrinho().length === 0) {
+      this.metodo.set(METODO_ROTEIRO[this.indiceRoteiro % METODO_ROTEIRO.length]);
       this.fila = [...ROTEIROS[this.indiceRoteiro++ % ROTEIROS.length]];
     }
     const proximo = this.fila.shift();

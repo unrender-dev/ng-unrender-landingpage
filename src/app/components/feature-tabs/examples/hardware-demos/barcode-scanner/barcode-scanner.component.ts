@@ -43,7 +43,7 @@ interface Row {
 }
 
 /** enter → scan → read → exit; `done` fecha a venda antes de recomeçar. */
-type Phase = 'enter' | 'scan' | 'read' | 'exit' | 'done';
+type Phase = 'enter' | 'scan' | 'read' | 'exit' | 'done' | 'error';
 
 const PRODUCTS: Product[] = [
   { name: 'pCoffee', code: '7891000315507', price: 18.9, icon: faMugHot },
@@ -111,6 +111,17 @@ const SALE_SIZE = 5;
             <fa-icon [icon]="faBarcode"></fa-icon>
             {{ t('scanNext') }}
           </button>
+
+          <form class="bs-wedge" (submit)="submitCode($event, codeInput)" [class.is-error]="phase() === 'error'">
+            <label [for]="inputId">{{ t('inputLabel') }}</label>
+            <div class="bs-wedge-row">
+              <input #codeInput [id]="inputId" type="text" inputmode="numeric" autocomplete="off" maxlength="14"
+                [placeholder]="t('inputPh')" (focus)="onTouch()" (input)="clearError()"
+                [attr.aria-invalid]="phase() === 'error'" [attr.aria-describedby]="inputId + '-hint'" />
+              <button type="submit" class="bs-add">{{ t('add') }}</button>
+            </div>
+            <small [id]="inputId + '-hint'">{{ t('inputHint', { code: hintCode }) }}</small>
+          </form>
         </section>
 
         <section class="bs-list">
@@ -273,7 +284,8 @@ const SALE_SIZE = 5;
     .bs-done fa-icon { font-size: 2.6rem; }
     .bs-done.is-on { opacity: 1; transform: none; transition-delay: .25s; }
 
-    .bs-status { margin: 0; font-size: .8rem; color: #475569; min-height: 1.2em; }
+    .bs-status { margin: 0; font-size: .8rem; color: #475569; min-height: 1.2em; text-align: center; overflow-wrap: anywhere; }
+    .bs-card[data-phase='error'] .bs-code { border-color: #dc2626; box-shadow: 0 0 0 4px rgba(220, 38, 38, .15); }
     .bs-btn {
       display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
       min-height: 44px; padding: .5rem 1.1rem;
@@ -285,6 +297,30 @@ const SALE_SIZE = 5;
     .bs-btn:hover { background: #2a1245; }
     .bs-btn:active { transform: scale(.96); }
     .bs-btn:focus-visible { outline: 3px solid var(--unrender-accent, #f99126); outline-offset: 2px; }
+
+    /* Leitor em modo teclado (HID): digitar ou colar o EAN */
+    .bs-wedge { width: min(100%, 19rem); display: flex; flex-direction: column; gap: .3rem; text-align: left; }
+    .bs-wedge label { font-size: .72rem; font-weight: 600; color: #475569; }
+    .bs-wedge-row { display: flex; gap: .4rem; }
+    .bs-wedge input {
+      flex: 1; min-width: 0; min-height: 40px; padding: .4rem .65rem;
+      border: 1px solid #cbd5e1; border-radius: .6rem; background: #fff;
+      font-family: ui-monospace, 'Cascadia Mono', Menlo, monospace; font-size: .85rem; letter-spacing: .06em; color: #0f172a;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .bs-wedge input::placeholder { font-family: inherit; letter-spacing: 0; font-size: .78rem; color: #94a3b8; }
+    .bs-wedge input:focus { outline: none; border-color: var(--unrender-accent, #f99126); box-shadow: 0 0 0 3px rgba(249, 145, 38, .25); }
+    .bs-wedge.is-error input { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, .18); animation: bs-shake .4s ease; }
+    .bs-add {
+      min-height: 40px; padding: 0 .9rem; border-radius: .6rem; border: 1px solid #e2e8f0;
+      background: #fff; font-weight: 700; font-size: .8rem; color: #0f172a; cursor: pointer;
+      transition: background-color .2s ease, transform .15s ease;
+    }
+    .bs-add:hover { background: #fff4e6; }
+    .bs-add:active { transform: scale(.96); }
+    .bs-add:focus-visible { outline: 3px solid var(--unrender-accent, #f99126); outline-offset: 2px; }
+    .bs-wedge small { font-size: .68rem; color: #64748b; overflow-wrap: anywhere; }
+    @media (pointer: coarse) { .bs-wedge input, .bs-add { min-height: 44px; } }
 
     .bs-list { display: flex; flex-direction: column; border-top: 1px solid #eef2f6; min-width: 0; }
     .bs-list-head {
@@ -333,6 +369,7 @@ const SALE_SIZE = 5;
     @keyframes bs-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(42%) rotate(4deg); } }
     @keyframes bs-sweep { from { transform: translateY(0); } to { transform: translateY(3.3rem); } }
     @keyframes bs-ping { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(3.6); } }
+    @keyframes bs-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(4px); } }
     @keyframes bs-blink { from { opacity: 1; } to { opacity: .35; } }
     @keyframes bs-row-in { from { grid-template-rows: 0fr; opacity: 0; transform: translateX(-14px); } to { grid-template-rows: 1fr; opacity: 1; transform: none; } }
     @keyframes bs-tint { from { background: #ffe2bd; color: #9a4f04; } to { background: #f1f5f9; color: #475569; } }
@@ -358,6 +395,9 @@ export class BarcodeScannerComponent implements AfterViewInit, OnDestroy {
   readonly rows = signal<Row[]>([]);
   readonly shownTotal = signal(0);
   readonly auto = signal(false);
+  readonly badCode = signal('');
+  readonly inputId = 'bs-code-' + Math.random().toString(36).slice(2, 8);
+  readonly hintCode = PRODUCTS[0].code;
 
   readonly current = computed(() => PRODUCTS[this.index() % PRODUCTS.length]);
   /** Larguras das barras (pretas e brancas alternadas), derivadas do próprio código. */
@@ -367,6 +407,7 @@ export class BarcodeScannerComponent implements AfterViewInit, OnDestroy {
       case 'scan': return this.t('stReading');
       case 'read': return this.t('stRead');
       case 'done': return this.t('saleDone');
+      case 'error': return this.t('stUnknown', { code: this.badCode() });
       default: return this.t('stWaiting');
     }
   });
@@ -425,6 +466,33 @@ export class BarcodeScannerComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  /** Leitor no modo teclado: o código digitado (ou "bipado") entra como uma leitura. */
+  submitCode(ev: Event, input: HTMLInputElement): void {
+    ev.preventDefault();
+    this.onTouch();
+    const code = input.value.replace(/\D/g, '');
+    if (!code) return;
+    const idx = PRODUCTS.findIndex((p) => p.code === code);
+    if (idx < 0) {
+      this.badCode.set(code);
+      this.phase.set('error');
+      this.beep(320, 0.22);
+      input.select();
+      return;
+    }
+    input.value = '';
+    void this.showcase.guard(async () => {
+      // uma leitura da vitrine em curso termina antes; o código digitado entra em seguida
+      while (this.busy) await this.showcase.wait(100);
+      this.index.set(idx);
+      await this.cycle(true);
+    });
+  }
+
+  clearError(): void {
+    if (this.phase() === 'error') this.phase.set('scan');
+  }
+
   /** Um produto: lê, lança no cupom, sai da bancada e dá lugar ao próximo. */
   private async cycle(manual: boolean): Promise<void> {
     if (this.busy) return;
@@ -478,7 +546,7 @@ export class BarcodeScannerComponent implements AfterViewInit, OnDestroy {
     this.total = value;
   }
 
-  private beep(): void {
+  private beep(freq = 1500, dur = 0.12): void {
     try {
       const Ctor: typeof AudioContext | undefined =
         window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -488,12 +556,12 @@ export class BarcodeScannerComponent implements AfterViewInit, OnDestroy {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'square';
-      osc.frequency.value = 1500;
+      osc.frequency.value = freq;
       gain.gain.setValueAtTime(0.06, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
       osc.connect(gain).connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.13);
+      osc.stop(ctx.currentTime + dur + 0.01);
     } catch {
       // Sem áudio disponível: o bip fica só visual.
     }

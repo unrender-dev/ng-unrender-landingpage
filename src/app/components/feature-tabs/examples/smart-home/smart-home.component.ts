@@ -13,7 +13,11 @@ import {
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
+  faBolt,
   faFan,
+  faPiggyBank,
+  faPlug,
+  faTemperatureHalf,
   faHouse,
   faKey,
   faLightbulb,
@@ -31,7 +35,7 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { I18nService, Params } from '../../../../i18n/i18n.service';
-import { ChatbotService } from '../../../../services/chatbotservice';
+import { ChatMessage, ChatbotService, SmartDevice } from '../../../../services/chatbotservice';
 import { ABORT, Showcase } from '../hardware-demos/showcase';
 import { I18N } from './smart-home.i18n';
 
@@ -123,6 +127,10 @@ export class SmartHomeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('closeBtn') private closeRef!: ElementRef<HTMLButtonElement>;
 
   readonly faRobot = faRobot;
+  readonly faBolt = faBolt;
+  readonly faPlug = faPlug;
+  readonly faPiggyBank = faPiggyBank;
+  readonly faTemperatureHalf = faTemperatureHalf;
   readonly faHouse = faHouse;
   readonly faMagnifyingGlass = faMagnifyingGlass;
   readonly faMoon = faMoon;
@@ -147,6 +155,38 @@ export class SmartHomeComponent implements AfterViewInit, OnDestroy {
   readonly keysFound = signal(false);
   readonly cameraOpen = signal(false);
   private readonly clock = signal(new Date());
+  /**
+   * Painel de energia e ambiente sob a planta: tudo é derivado do estado dos
+   * aparelhos, então reage na hora a cada comando (manual, cena ou IA).
+   */
+  readonly energy = computed(() => {
+    const st = this.state();
+    let watts = 180; // geladeira, roteador e standby
+    let acOn = 0;
+    for (const d of DEVICES) {
+      const s = st[d.id];
+      if (!s.on) continue;
+      if (d.type === 'light') watts += 0.12 * s.value * 9;
+      else if (d.type === 'tv') watts += 110;
+      else if (d.type === 'fan') watts += 85;
+      else if (d.type === 'ac') { watts += 900 + (24 - Math.min(24, s.value)) * 60; acOn++; }
+      else if (d.type === 'camera') watts += 6;
+    }
+    const kw = watts / 1000;
+    const acTargets = DEVICES.filter((d) => d.type === 'ac' && st[d.id].on).map((d) => st[d.id].value);
+    const indoor = acTargets.length ? acTargets.reduce((a, b) => a + b, 0) / acTargets.length + 0.6 : 27.4;
+    const onCount = DEVICES.filter((d) => d.type !== 'lock' && d.type !== 'camera' && st[d.id].on).length;
+    return {
+      kw,
+      indoor,
+      humidity: acOn ? 52 : 63,
+      onCount,
+      // Economia estimada do mês com as automações (cenas, desligamento por ausência).
+      savings: 186 + Math.round((1.8 - Math.min(1.8, kw)) * 40),
+      locked: st['lock1' as DeviceId].on,
+    };
+  });
+
   readonly clockLabel = computed(() =>
     this.i18n.date(this.clock(), { dateStyle: 'short', timeStyle: 'medium' }),
   );
@@ -466,25 +506,16 @@ export class SmartHomeComponent implements AfterViewInit, OnDestroy {
   private askAi(userText: string): void {
     const token = ++this.sceneToken;
     this.busy.set(true);
-    const language = { pt: 'Brazilian Portuguese', en: 'English', es: 'Spanish', fr: 'French' }[this.i18n.lang()];
-    const deviceList = DEVICES.map((d) => {
+    // A instrução de sistema e a chave da IA ficam no servidor (SGA); aqui vão só a
+    // conversa e o estado dos aparelhos.
+    const devices: SmartDevice[] = DEVICES.map((d) => {
       const s = this.state()[d.id];
-      return `- ${this.t(d.name)} (id: ${d.id}, room: ${d.room}, type: ${d.type}, on: ${s.on}, value: ${s.value})`;
-    }).join('\n');
-    const system = `You are a smart home assistant controlling these devices:
-${deviceList}
-
-User input: "${userText}"
-
-Return ONLY a JSON array of actions, with no markdown and no extra text. Supported actions:
-{"action":"toggle","id":"DEVICE_ID","state":true|false}  (for the lock, true means locked)
-{"action":"setValue","id":"DEVICE_ID","value":NUMBER}   (light brightness 10-100 or temperature 16-30)
-{"action":"find","item":"ITEM_NAME"}
-{"action":"scenario","name":"arrive"|"find-keys"|"good-night"}
-{"action":"response","text":"short answer in ${language}"}`;
-    const history = this.messages()
-      .slice(0, -1)
+      return { id: d.id, nome: this.t(d.name), comodo: d.room, tipo: d.type, ligado: s.on, valor: s.value };
+    });
+    const history: ChatMessage[] = this.messages()
+      .slice(-10)
       .map((m) => ({ role: m.from === 'ai' ? ('assistant' as const) : ('user' as const), content: this.textOf(m) }));
+    if (history.at(-1)?.role !== 'user') history.push({ role: 'user', content: userText });
 
     const fail = () => {
       if (token !== this.sceneToken) return;
@@ -492,7 +523,7 @@ Return ONLY a JSON array of actions, with no markdown and no extra text. Support
       this.busy.set(false);
     };
     try {
-      this.chatbot.getGeminiResponse(system, history, 'gemini-2.5-flash-lite').subscribe({
+      this.chatbot.controlHome(history, devices, this.i18n.lang()).subscribe({
         next: (response) => {
           if (token !== this.sceneToken) return;
           void this.showcase.guard(() => this.applyAi(response, token)).catch(fail);

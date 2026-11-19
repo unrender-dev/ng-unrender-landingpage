@@ -2,6 +2,12 @@ import { dict } from '../../../../i18n/i18n.service';
 
 export const I18N = dict({
   pt: {
+    n1: 'Venda nº 1.284 registrada no caixa 2 · R$ 186,40',
+    n2: 'Impressora térmica conectada (USB · 80 mm)',
+    n3: '3 novas conversas no Atendimento',
+    n4: 'Marina Souza registrou entrada pela biometria',
+    n5: 'Backup local concluído e enviado para a nuvem',
+    noteClose: 'Dispensar notificação',
     monitorLabel: 'Computador com o SGA CTRLB aberto em uma janela',
     lead: 'Software instalado na máquina, com acesso direto ao sistema operacional e ao hardware do balcão.',
     caption: 'Capturas reais do SGA CTRLB em uma moldura de janela ilustrativa.',
@@ -41,6 +47,12 @@ export const I18N = dict({
     updText: 'Instalador assinado e atualização automática, com ou sem internet.',
   },
   en: {
+    n1: 'Sale #1,284 recorded at till 2 · R$ 186.40',
+    n2: 'Thermal printer connected (USB · 80 mm)',
+    n3: '3 new conversations in the Inbox',
+    n4: 'Marina Souza clocked in with her fingerprint',
+    n5: 'Local backup finished and uploaded to the cloud',
+    noteClose: 'Dismiss notification',
     monitorLabel: 'Computer with SGA CTRLB open in a window',
     lead: 'Software installed on the machine, with direct access to the operating system and the hardware at the counter.',
     caption: 'Real SGA CTRLB screenshots (interface in Portuguese) in an illustrative window frame.',
@@ -80,6 +92,12 @@ export const I18N = dict({
     updText: 'Signed installer and automatic updates, with or without internet.',
   },
   es: {
+    n1: 'Venta n.º 1.284 registrada en la caja 2 · R$ 186,40',
+    n2: 'Impresora térmica conectada (USB · 80 mm)',
+    n3: '3 conversaciones nuevas en Atención',
+    n4: 'Marina Souza registró su entrada con la huella',
+    n5: 'Copia de seguridad local terminada y enviada a la nube',
+    noteClose: 'Descartar notificación',
     monitorLabel: 'Ordenador con SGA CTRLB abierto en una ventana',
     lead: 'Software instalado en el equipo, con acceso directo al sistema operativo y al hardware del mostrador.',
     caption: 'Capturas reales de SGA CTRLB (interfaz en portugués) en un marco de ventana ilustrativo.',
@@ -119,6 +137,12 @@ export const I18N = dict({
     updText: 'Instalador firmado y actualización automática, con o sin internet.',
   },
   fr: {
+    n1: 'Vente nº 1 284 enregistrée à la caisse 2 · 186,40 R$',
+    n2: 'Imprimante thermique connectée (USB · 80 mm)',
+    n3: '3 nouvelles conversations dans la messagerie',
+    n4: 'Marina Souza a pointé avec son empreinte',
+    n5: 'Sauvegarde locale terminée et envoyée dans le cloud',
+    noteClose: 'Fermer la notification',
     monitorLabel: 'Ordinateur avec SGA CTRLB ouvert dans une fenêtre',
     lead: 'Un logiciel installé sur la machine, avec un accès direct au système d’exploitation et au matériel du comptoir.',
     caption: 'Captures réelles de SGA CTRLB (interface en portugais) dans un cadre de fenêtre illustratif.',

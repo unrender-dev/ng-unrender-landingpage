@@ -15,42 +15,87 @@ import {
   IconDefinition,
   faCommentDots,
   faCamera,
+  faWallet,
+  faUtensils,
   faQrcode,
   faCreditCard,
-  faUtensils,
-  faFileInvoiceDollar,
-  faServer,
-  faCube,
+  faCalendarCheck,
+  faTowerBroadcast,
+  faCode,
+  faDoorOpen,
   faPlug,
 } from '@fortawesome/free-solid-svg-icons';
 import { I18nService } from '../../../../i18n/i18n.service';
 import { I18N } from './api-integration.i18n';
 
 type Key = keyof (typeof I18N)['pt'];
+type Dir = 'in' | 'out';
 
-interface IntegrationNode {
+interface IntegrationDef {
   id: string;
-  /** Nome próprio do serviço (não traduzido) ou chave de tradução para rótulos genéricos. */
+  /** Nome próprio do serviço (não traduzido) ou chave de tradução. */
   name?: string;
   nameKey?: Key;
-  /** Ícone genérico da categoria — serviços de terceiros aparecem só como texto. */
+  /** Ícone genérico da categoria: serviços de terceiros aparecem só pelo nome, sem logo. */
   icon: IconDefinition;
+  dir: Dir;
+  method: 'GET' | 'POST' | 'PUT';
+  path: string;
+  status: number;
+  /** Faixa de latência típica (ms). */
+  ms: [number, number];
+  desc: Key;
+}
+
+interface IntegrationNode extends IntegrationDef {
   x: number;
   y: number;
-  /** Atraso negativo da animação: espalha os pulsos ao longo do ciclo. */
-  delay: number;
   connected: boolean;
-  /** Pulso de "acabou de conectar". */
+  /** Pulso de evento/conexão no ícone. */
   burst: boolean;
+  /** Conexão acesa enquanto um evento passa. */
+  hot: boolean;
+  queued: number;
 }
+
+interface Packet { id: number; dx: number; dy: number; dir: Dir; }
+
+interface EventRow {
+  id: number;
+  at: Date;
+  node: string;
+  method: string;
+  path: string;
+  /** `null` = ficou na fila (integração desligada). */
+  status: number | null;
+  ms: number;
+  dir: Dir;
+  desc: Key | null;
+  /** Linha especial de reenvio da fila. */
+  flushed?: number;
+}
+
+const DEFS: IntegrationDef[] = [
+  { id: 'whatsapp', nameKey: 'whatsapp', icon: faCommentDots, dir: 'in', method: 'POST', path: '/webhooks/whatsapp', status: 200, ms: [38, 95], desc: 'd_whatsapp' },
+  { id: 'instagram', name: 'Instagram', icon: faCamera, dir: 'in', method: 'POST', path: '/webhooks/instagram', status: 200, ms: [42, 110], desc: 'd_instagram' },
+  { id: 'metaPay', nameKey: 'metaPay', icon: faWallet, dir: 'in', method: 'POST', path: '/webhooks/meta-pagamentos', status: 200, ms: [55, 140], desc: 'd_metaPay' },
+  { id: 'ifood', name: 'iFood', icon: faUtensils, dir: 'in', method: 'POST', path: '/integracoes/ifood/pedidos', status: 201, ms: [70, 180], desc: 'd_ifood' },
+  { id: 'pix', name: 'PIX', icon: faQrcode, dir: 'in', method: 'POST', path: '/webhooks/pix', status: 200, ms: [30, 80], desc: 'd_pix' },
+  { id: 'cards', nameKey: 'cards', icon: faCreditCard, dir: 'out', method: 'POST', path: '/v1/charges', status: 201, ms: [180, 420], desc: 'd_cards' },
+  { id: 'gcal', nameKey: 'gcal', icon: faCalendarCheck, dir: 'out', method: 'PUT', path: '/calendar/v3/events/{id}', status: 200, ms: [120, 260], desc: 'd_gcal' },
+  { id: 'webhooks', name: 'Webhooks', icon: faTowerBroadcast, dir: 'out', method: 'POST', path: 'https://erp.cliente.com/hooks', status: 202, ms: [90, 240], desc: 'd_webhooks' },
+  { id: 'publicApi', nameKey: 'publicApi', icon: faCode, dir: 'in', method: 'GET', path: '/api/v1/contatos?desde=hoje', status: 200, ms: [25, 70], desc: 'd_publicApi' },
+  { id: 'gate', nameKey: 'gate', icon: faDoorOpen, dir: 'in', method: 'POST', path: '/acesso/eventos', status: 200, ms: [20, 60], desc: 'd_gate' },
+];
 
 const CENTER_X = 50;
 const CENTER_Y = 48;
-const RADIUS_X = 36;
-const RADIUS_Y = 34;
-/** Intervalo do modo vitrine e pausa após interação do usuário. */
-const AUTO_STEP_MS = 2600;
-const USER_PAUSE_MS = 8000;
+const RADIUS_X = 37;
+const RADIUS_Y = 35;
+/** Intervalo entre eventos simulados e pausa do autoplay após interação. */
+const EVENT_MS = 1250;
+const PACKET_MS = 900;
+const MAX_ROWS = 6;
 
 @Component({
   selector: 'app-api-integration',
@@ -69,37 +114,36 @@ export class ApiIntegrationComponent implements AfterViewInit, OnDestroy {
   readonly faPlug = faPlug;
   readonly centerX = CENTER_X;
   readonly centerY = CENTER_Y;
-  readonly protocols = ['REST API', 'GraphQL', 'Webhooks', 'WebSocket'];
 
-  readonly integrations = signal<IntegrationNode[]>(
-    layout([
-      { id: 'whatsapp', name: 'WhatsApp', icon: faCommentDots, connected: true },
-      { id: 'pix', name: 'PIX', icon: faQrcode, connected: true },
-      { id: 'cards', nameKey: 'cards', icon: faCreditCard, connected: true },
-      { id: 'ifood', name: 'iFood', icon: faUtensils, connected: false },
-      { id: 'invoice', nameKey: 'invoice', icon: faFileInvoiceDollar, connected: true },
-      { id: 'erp', nameKey: 'erp', icon: faServer, connected: true },
-      { id: 'instagram', name: 'Instagram', icon: faCamera, connected: false },
-      { id: 'custom', nameKey: 'customApi', icon: faCube, connected: true },
-    ]),
-  );
-
+  readonly integrations = signal<IntegrationNode[]>(layout(DEFS));
+  readonly packets = signal<Packet[]>([]);
+  readonly events = signal<EventRow[]>([]);
+  readonly today = signal(48213);
   readonly activeCount = computed(() => this.integrations().filter((n) => n.connected).length);
+  readonly latency = computed(() => {
+    const ok = this.events().filter((e) => e.status !== null && !e.flushed);
+    return ok.length ? Math.round(ok.reduce((s, e) => s + e.ms, 0) / ok.length) : 64;
+  });
   /** Animações CSS pausadas (fora da tela ou aba oculta). */
   readonly paused = signal(false);
 
-  private autoTimer: ReturnType<typeof setInterval> | null = null;
-  private burstTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private timeouts = new Set<ReturnType<typeof setTimeout>>();
   private observer: IntersectionObserver | null = null;
   private inView = true;
-  private autoCursor = 0;
-  /** Integrações desligadas, da mais antiga para a mais recente. */
-  private offQueue: string[] = ['ifood', 'instagram'];
-  private resumeAt = 0;
+  private seq = 0;
+  private lastNode = '';
   private readonly reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   private readonly onVisibility = () => this.syncRunning();
+
+  constructor() {
+    // A lista já começa com alguns eventos, também para quem usa movimento reduzido.
+    const now = Date.now();
+    const seed = ['pix', 'whatsapp', 'gcal', 'ifood'];
+    this.events.set(seed.map((id, i) => this.row(DEFS.find((d) => d.id === id)!, new Date(now - (seed.length - i) * 2100))).reverse());
+  }
 
   ngAfterViewInit(): void {
     if (typeof IntersectionObserver !== 'undefined') {
@@ -116,99 +160,129 @@ export class ApiIntegrationComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.observer?.disconnect();
     document.removeEventListener('visibilitychange', this.onVisibility);
-    this.stopAuto();
-    this.burstTimers.forEach((timer) => clearTimeout(timer));
-    this.burstTimers.clear();
+    this.stop();
+    this.timeouts.forEach((t) => clearTimeout(t));
+    this.timeouts.clear();
   }
 
-  label(node: IntegrationNode): string {
+  label(node: { name?: string; nameKey?: Key }): string {
     return node.nameKey ? this.t(node.nameKey) : (node.name ?? '');
   }
 
+  nodeLabel(id: string): string {
+    return this.label(DEFS.find((d) => d.id === id)!);
+  }
+
+  time(d: Date): string {
+    return this.i18n.date(d, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  }
+
   ariaLabel(node: IntegrationNode): string {
-    const params = {
-      nome: this.label(node),
-      estado: this.t(node.connected ? 'connected' : 'disconnected'),
-    };
+    const params = { nome: this.label(node), estado: this.t(node.connected ? 'connected' : 'disconnected') };
     return this.t(node.connected ? 'toggleOff' : 'toggleOn', params);
   }
 
-  /** Clique do usuário: alterna a integração e segura o modo vitrine por alguns segundos. */
+  /** Clique do usuário: liga/desliga. Ao religar, a fila acumulada é reenviada. */
   toggleConnection(node: IntegrationNode): void {
-    this.resumeAt = Date.now() + USER_PAUSE_MS;
-    this.setConnected(node.id, !node.connected);
+    const connected = !node.connected;
+    const queued = node.queued;
+    this.patch(node.id, { connected, queued: connected ? 0 : node.queued, burst: connected });
+    this.later(() => this.patch(node.id, { burst: false }), 900);
+    if (connected && queued > 0) {
+      for (let i = 0; i < Math.min(queued, 4); i++) this.later(() => this.flow(node.id), i * 180);
+      this.push({ ...this.row(node, new Date()), flushed: queued });
+      this.today.update((n) => n + queued);
+    }
   }
 
-  private setConnected(id: string, connected: boolean): void {
-    this.offQueue = this.offQueue.filter((other) => other !== id);
-    if (!connected) this.offQueue.push(id);
-    this.integrations.update((list) => list.map((n) => (n.id === id ? { ...n, connected, burst: connected } : n)));
-    const previous = this.burstTimers.get(id);
-    if (previous) clearTimeout(previous);
-    if (connected) {
-      this.burstTimers.set(
-        id,
-        setTimeout(() => {
-          this.burstTimers.delete(id);
-          this.integrations.update((list) => list.map((n) => (n.id === id ? { ...n, burst: false } : n)));
-        }, 900),
-      );
+  private patch(id: string, change: Partial<IntegrationNode>): void {
+    this.integrations.update((list) => list.map((n) => (n.id === id ? { ...n, ...change } : n)));
+  }
+
+  private row(def: IntegrationDef, at: Date, queued = false): EventRow {
+    const [a, b] = def.ms;
+    return {
+      id: ++this.seq, at, node: def.id, method: def.method, path: def.path,
+      status: queued ? null : def.status, ms: Math.round(a + Math.random() * (b - a)), dir: def.dir, desc: def.desc,
+    };
+  }
+
+  private push(row: EventRow): void {
+    this.events.update((list) => [row, ...list].slice(0, MAX_ROWS));
+  }
+
+  /** Um evento: pacote viaja pela conexão (entrada → hub, saída → serviço) e o nó pulsa. */
+  private flow(id: string): void {
+    const node = this.integrations().find((n) => n.id === id);
+    if (!node) return;
+    const packet: Packet = { id: ++this.seq, dx: node.x - CENTER_X, dy: node.y - CENTER_Y, dir: node.dir };
+    this.packets.update((list) => [...list, packet]);
+    this.patch(id, { hot: true, burst: true });
+    this.later(() => {
+      this.packets.update((list) => list.filter((p) => p.id !== packet.id));
+      this.patch(id, { hot: false, burst: false });
+    }, PACKET_MS + 60);
+  }
+
+  /** Próximo evento simulado: escolhe um serviço (sem repetir o anterior). */
+  private tick(): void {
+    const list = this.integrations();
+    let pick = list[Math.floor(Math.random() * list.length)];
+    if (pick.id === this.lastNode) pick = list[(list.indexOf(pick) + 3) % list.length];
+    this.lastNode = pick.id;
+    if (!pick.connected) {
+      // Integração desligada: o evento não se perde, vai para a fila.
+      this.patch(pick.id, { queued: pick.queued + 1 });
+      this.push(this.row(pick, new Date(), true));
+      return;
     }
+    this.flow(pick.id);
+    this.push(this.row(pick, new Date()));
+    this.today.update((n) => n + 1 + Math.floor(Math.random() * 3));
+  }
+
+  private later(fn: () => void, ms: number): void {
+    const t = setTimeout(() => {
+      this.timeouts.delete(t);
+      this.zone.run(fn);
+    }, ms);
+    this.timeouts.add(t);
   }
 
   private syncRunning(): void {
     const visible = this.inView && !document.hidden;
     this.paused.set(!visible);
-    if (visible && !this.reducedMotion) this.startAuto();
-    else this.stopAuto();
+    if (visible && !this.reducedMotion) this.start();
+    else this.stop();
   }
 
-  /** Modo vitrine: alterna entre derrubar uma integração e religar a mais antiga, sem esvaziar o diagrama. */
-  private startAuto(): void {
-    if (this.autoTimer) return;
+  private start(): void {
+    if (this.timer) return;
     this.zone.runOutsideAngular(() => {
-      this.autoTimer = setInterval(() => {
-        if (Date.now() < this.resumeAt) return;
-        const list = this.integrations();
-        const off = this.offQueue.filter((id) => list.some((n) => n.id === id && !n.connected));
-        if (off.length >= 2) {
-          this.zone.run(() => this.setConnected(off[0], true));
-          return;
-        }
-        // Passo 3 em 8 nós: percorre todos antes de repetir.
-        for (let i = 0; i < list.length; i++) {
-          this.autoCursor = (this.autoCursor + 3) % list.length;
-          const target = list[this.autoCursor];
-          if (target.connected) {
-            this.zone.run(() => this.setConnected(target.id, false));
-            return;
-          }
-        }
-      }, AUTO_STEP_MS);
+      this.timer = setInterval(() => this.zone.run(() => this.tick()), EVENT_MS);
     });
   }
 
-  private stopAuto(): void {
-    if (this.autoTimer) {
-      clearInterval(this.autoTimer);
-      this.autoTimer = null;
+  private stop(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
     }
   }
 }
 
-function layout(
-  nodes: Array<Pick<IntegrationNode, 'id' | 'name' | 'nameKey' | 'icon' | 'connected'>>,
-): IntegrationNode[] {
-  const count = nodes.length;
-  return nodes.map((node, index) => {
+function layout(defs: IntegrationDef[]): IntegrationNode[] {
+  const count = defs.length;
+  return defs.map((def, index) => {
     const angle = (-90 + index * (360 / count)) * (Math.PI / 180);
     return {
-      ...node,
+      ...def,
       x: +(CENTER_X + RADIUS_X * Math.cos(angle)).toFixed(2),
       y: +(CENTER_Y + RADIUS_Y * Math.sin(angle)).toFixed(2),
-      // Passo irregular (5/8 do ciclo) para os pulsos não saírem em fila.
-      delay: -(((index * 5) % count) / count),
+      connected: true,
       burst: false,
+      hot: false,
+      queued: 0,
     };
   });
 }

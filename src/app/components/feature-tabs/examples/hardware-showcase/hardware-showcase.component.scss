@@ -422,7 +422,8 @@
 /* ---------------------------------------------------------------- larguras maiores */
 @container (min-width: 520px) {
   .hs-items {
-    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    // auto-fit: com poucos itens os cartões esticam e ocupam a linha toda.
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
   }
 
   .hs-cats {

@@ -56,21 +56,24 @@
           <h3>{{ t('tab.' + tab.id + '.title') }}</h3>
           <span class="arrow-indicator" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
         </button>
-        @if (activeTab() === tab.id && tab.id !== 'design') {
-        <nav class="mobile-nav-container" [attr.aria-label]="t('ui.sections', { tab: t('tab.' + tab.id + '.title') })">
-          <ul class="chip-row">
-            @for (item of items[tab.id]; track item.id) {
-            <li>
-              <button type="button" class="chip" [class.is-active]="item.id === activeItem().id"
-                [attr.aria-current]="item.id === activeItem().id ? 'true' : null" (click)="selectItem(tab.id, item)">
-                {{ t('item.' + item.id + '.title') }}
-              </button>
-            </li>
-            }
-          </ul>
-        </nav>
-        }
       </div>
+
+      <!-- Todas as seções da aba à vista, em grade (sem rolagem lateral). Fica fora do
+           cabeçalho fixo para não ocupar a tela enquanto se lê o conteúdo. -->
+      @if (activeTab() === tab.id && tab.id !== 'design') {
+      <nav class="mobile-nav-container" [attr.aria-label]="t('ui.sections', { tab: t('tab.' + tab.id + '.title') })">
+        <ul class="chip-grid">
+          @for (item of items[tab.id]; track item.id) {
+          <li>
+            <button type="button" class="chip" [class.is-active]="item.id === activeItem().id"
+              [attr.aria-current]="item.id === activeItem().id ? 'true' : null" (click)="selectItem(tab.id, item)">
+              {{ t('item.' + item.id + '.title') }}
+            </button>
+          </li>
+          }
+        </ul>
+      </nav>
+      }
 
       @if (activeTab() === tab.id) {
       <div class="content-display">
@@ -149,7 +152,8 @@
       <div class="feature-row feature-row-image">
         <div class="product-main">
           <div class="feature-media-square">
-            <img [src]="feature.image" [alt]="t('f.' + feature.key)" loading="lazy" decoding="async" />
+            <img [src]="productImage(feature)" [alt]="t('f.' + feature.key)" loading="lazy" decoding="async"
+              [class.is-photo]="isPhoto(feature)" />
           </div>
           <div class="product-text">
             <h4>{{ t('f.' + feature.key) }}</h4>
@@ -160,6 +164,9 @@
               <span class="price price--rent">{{ rentLabel(feature) }}</span>
               }
             </div>
+            @if (livePrice(feature)) {
+            <p class="price-live"><i class="fa-solid fa-rotate" aria-hidden="true"></i> {{ t('ui.livePrice') }}</p>
+            }
             }
           </div>
         </div>
@@ -199,7 +206,7 @@
       @case ('photo') {
       <div class="feature-row feature-row-custom">
         <h4 class="feature-pill">{{ t('f.' + feature.key) }}</h4>
-        <figure class="real-photo">
+        <figure class="real-photo" [class.real-photo--small]="feature.small">
           <img [src]="feature.image" [alt]="t('f.' + feature.key + '.d')" loading="lazy" decoding="async" />
           <figcaption>{{ t('f.' + feature.key + '.d') }}</figcaption>
         </figure>
@@ -223,10 +230,6 @@
 <!-- ───────── Aba 3D e Games ───────── -->
 <ng-template #designContent>
   <div class="modern-content-wrapper modern-content-wrapper--flat">
-    @if (bannerFor(items.design[0]); as banner) {
-    <app-feature-banner [banner]="banner" />
-    }
-
     <div class="games-header">
       <a class="games-brand" href="https://unrender.games" target="_blank" rel="noopener noreferrer">UNRENDER.GAMES</a>
       <p class="games-lead">{{ t('ui.studio') }}</p>

@@ -64,7 +64,10 @@ async function prerenderRoutes() {
   console.log(`📡 Static server running on http://localhost:${PORT}`);
   
   // Launch browser
-  const browser = await chromium.launch();
+  // Chromium do Playwright quando instalado; senão o Edge/Chrome da máquina.
+  const browser = await chromium.launch().catch(() =>
+    chromium.launch({ channel: 'msedge' }).catch(() => chromium.launch({ channel: 'chrome' })),
+  );
   const context = await browser.newContext();
   
   for (const route of ROUTES) {

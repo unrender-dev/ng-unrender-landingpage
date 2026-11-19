@@ -50,6 +50,33 @@ interface LogEvent {
   ip?: string;
 }
 
+/** Fatia do tráfego por aplicação (painel "Banda por aplicação"). */
+interface AppShare {
+  key: Key;
+  color: string;
+  /** Participação média, em %. */
+  base: number;
+}
+
+const APP_SHARES: readonly AppShare[] = [
+  { key: 'appErp', color: '#f99126', base: 31 },
+  { key: 'appBackup', color: '#0ea5a4', base: 22 },
+  { key: 'appVideo', color: '#3b82f6', base: 19 },
+  { key: 'appVoip', color: '#22c55e', base: 9 },
+  { key: 'appWeb', color: '#a855f7', base: 19 },
+];
+
+/** Eventos de rotina que aparecem entre as falhas e ameaças (com o tipo de parâmetro). */
+const ROUTINE: readonly { key: Key; level: LogEvent['level']; param: 'ip' | 'n' | 'none' }[] = [
+  { key: 'evDhcp', level: 'info', param: 'ip' },
+  { key: 'evBackup', level: 'ok', param: 'n' },
+  { key: 'evVpn', level: 'info', param: 'ip' },
+  { key: 'evPeak', level: 'warn', param: 'n' },
+  { key: 'evPatch', level: 'ok', param: 'none' },
+  { key: 'evRoam', level: 'info', param: 'none' },
+  { key: 'evQos', level: 'ok', param: 'none' },
+];
+
 /** Altura do mapa em unidades do viewBox (a largura é 100). */
 const H = 132;
 
@@ -131,7 +158,10 @@ export class NetworkManagementComponent implements AfterViewInit, OnDestroy {
   readonly selectedId = signal('fw');
   readonly selected = computed(() => this.node(this.selectedId()));
   readonly selectedLoad = signal(34);
-  readonly log = signal<LogEvent[]>([{ id: 0, time: new Date(), key: 'evStart', level: 'info', n: NODES.length }]);
+  readonly log = signal<LogEvent[]>(this.seedLog());
+  /** Banda por aplicação (em %), atualizada ao vivo. */
+  readonly appShares = signal<{ key: Key; color: string; pct: number }[]>(APP_SHARES.map((a) => ({ key: a.key, color: a.color, pct: a.base })));
+  readonly devicesOnline = signal(NODES.length + 38);
   readonly statusKey = computed<Key>(() =>
     this.uplink() === 'normal' ? 'statusNormal' : this.uplink() === 'failover' ? 'statusFailover' : 'statusRecovering',
   );
@@ -145,6 +175,11 @@ export class NetworkManagementComponent implements AfterViewInit, OnDestroy {
   private failUntil = 0;
   private recoverUntil = 0;
   private nextThreatAt = 6;
+  private nextRoutineAt = 3;
+  private routineIdx = 0;
+  /** Tour automático pelos dispositivos enquanto ninguém interage. */
+  private nextTourAt = 5;
+  private holdUntil = 0;
   private logId = 0;
   private publishAcc = 0;
   private readonly pt: Pt = { x: 0, y: 0 };
@@ -160,6 +195,7 @@ export class NetworkManagementComponent implements AfterViewInit, OnDestroy {
 
   // --- Interação ---
   select(id: string): void {
+    this.holdUntil = (this.loop?.now() ?? 0) + 15;
     this.selectedId.set(id);
     this.selectedLoad.set(Math.round(this.loadOf(id, this.loop?.now() ?? 0)));
   }
@@ -202,6 +238,7 @@ export class NetworkManagementComponent implements AfterViewInit, OnDestroy {
       params['ms'] = this.i18n.number(e.n);
     }
     if (e.ip) params['ip'] = e.ip;
+    if (e.key === 'evPeak' && e.n !== undefined) params['n'] = this.num(e.n / 10, 1);
     return this.t(e.key, params);
   }
 
@@ -242,6 +279,30 @@ export class NetworkManagementComponent implements AfterViewInit, OnDestroy {
       );
     }
 
+    if (t >= this.nextRoutineAt) {
+      this.nextRoutineAt = t + 3.5 + this.rand() * 3;
+      const r = ROUTINE[this.routineIdx++ % ROUTINE.length];
+      if (r.param === 'ip') {
+        const ip = r.key === 'evVpn' ? `177.${40 + Math.floor(this.rand() * 80)}.${Math.floor(this.rand() * 250)}.${Math.floor(this.rand() * 250)}` : `10.0.30.${60 + Math.floor(this.rand() * 120)}`;
+        if (r.key === 'evDhcp') this.devicesOnline.update((n) => n + 1);
+        this.addEvent(r.key, r.level, undefined, ip);
+      } else if (r.param === 'n') {
+        this.addEvent(r.key, r.level, r.key === 'evPeak' ? 31 + Math.floor(this.rand() * 9) : 40 + Math.floor(this.rand() * 90));
+      } else {
+        this.addEvent(r.key, r.level);
+      }
+    }
+
+    // Modo vitrine: percorre os dispositivos enquanto ninguém interage.
+    if (!this.loop?.reduced && t >= this.holdUntil && t >= this.nextTourAt) {
+      this.nextTourAt = t + 5;
+      const order = ['fw', 'core', 'db', 'app', 'wifi', 'ispA', 'bkp', 'ispB'];
+      const i = order.indexOf(this.selectedId());
+      const next = order[(i + 1) % order.length];
+      this.selectedId.set(next);
+      this.selectedLoad.set(Math.round(this.loadOf(next, t)));
+    }
+
     // A comutação entre operadoras é um crossfade: pacotes de uma rota somem enquanto os da outra surgem.
     this.up = ease(this.up, this.state === 'normal' ? 1 : 0, dt, 0.45);
 
@@ -267,6 +328,16 @@ export class NetworkManagementComponent implements AfterViewInit, OnDestroy {
       this.bandwidth.set((2.4 + 0.5 * Math.sin(t * 0.21) + 0.2 * Math.sin(t * 0.67)) * (1 - 0.35 * backup));
       this.latency.set(14 + 2 * Math.sin(t * 0.4) + Math.sin(t * 1.1) + 21 * backup);
       this.selectedLoad.set(Math.round(this.loadOf(this.selectedId(), t)));
+      // Banda por aplicação: cada fatia oscila em torno da média; no failover o backup
+      // é adiado (QoS) e o ERP ganha prioridade.
+      const raw = APP_SHARES.map((a, i) => {
+        let v = a.base + 4 * Math.sin(t * 0.17 + i * 1.9) + 2 * Math.sin(t * 0.53 + i);
+        if (a.key === 'appBackup') v *= 1 - 0.8 * backup;
+        if (a.key === 'appErp') v *= 1 + 0.5 * backup;
+        return Math.max(2, v);
+      });
+      const sum = raw.reduce((x, y) => x + y, 0);
+      this.appShares.set(APP_SHARES.map((a, i) => ({ key: a.key, color: a.color, pct: Math.round((raw[i] / sum) * 100) })));
     }
   }
 
@@ -294,7 +365,19 @@ export class NetworkManagementComponent implements AfterViewInit, OnDestroy {
 
   private addEvent(key: Key, level: LogEvent['level'], n?: number, ip?: string): void {
     const next = [{ id: ++this.logId, time: new Date(), key, level, n, ip }, ...this.log()];
-    this.log.set(next.slice(0, 4));
+    this.log.set(next.slice(0, 6));
+  }
+
+  /** Histórico dos últimos minutos, para o painel não abrir vazio. */
+  private seedLog(): LogEvent[] {
+    const now = Date.now();
+    const at = (s: number) => new Date(now - s * 1000);
+    return [
+      { id: -1, time: at(4), key: 'evStart', level: 'info', n: NODES.length + 38 },
+      { id: -2, time: at(47), key: 'evBackup', level: 'ok', n: 86 },
+      { id: -3, time: at(95), key: 'evThreat', level: 'warn', ip: '203.0.113.87' },
+      { id: -4, time: at(160), key: 'evVpn', level: 'info', ip: '177.84.12.201' },
+    ];
   }
 
   private node(id: string): NodeDef {

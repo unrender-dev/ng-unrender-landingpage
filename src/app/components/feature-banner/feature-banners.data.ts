@@ -128,6 +128,24 @@ const SHAPES: Record<string, BannerShape> = {
     ],
   },
 
+  // ───────────── Games, 3D e totens para eventos ─────────────
+  'event-games': {
+    highlights: ['fa-solid fa-hand-sparkles', 'fa-solid fa-face-smile', 'fa-solid fa-eye', 'fa-solid fa-trophy'],
+    ctaLink: 'https://unrender.games/gamificacao',
+    media: [
+      { kind: 'photo', src: '/features/totem1.png', focus: '35% center' },
+      { kind: 'photo', src: '/features/unrender-games/totem-virtual-tryon.jpg', focus: '50% 35%' },
+    ],
+  },
+  'event-totems': {
+    highlights: ['fa-solid fa-camera', 'fa-solid fa-tv', 'fa-solid fa-truck-ramp-box'],
+    ctaLink: '/loja',
+    media: [
+      { kind: 'photo', src: '/features/totem2.jpg', focus: 'center 40%' },
+      { kind: 'photo', src: '/features/unrender-games/totem-virtual-tryon.jpg', focus: '50% 35%' },
+    ],
+  },
+
   // ───────────── 3D & Games ─────────────
   'unrender-games': {
     highlights: ['fa-solid fa-gamepad', 'fa-solid fa-vr-cardboard', 'fa-solid fa-person-running'],

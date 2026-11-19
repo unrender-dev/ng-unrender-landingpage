@@ -1,5 +1,5 @@
 import type { Lang } from '../i18n/i18n.service';
-import { CategoriaPos, ProdutoPos, categoriasPos } from './produtos-pos.data';
+import { CategoriaPos, ProdutoPos, categoriasPos, produtosPos } from './produtos-pos.data';
 
 /**
  * Tradução do catálogo POS.
@@ -49,17 +49,22 @@ const CATEGORIAS: Record<string, PorIdioma> = {
     fr: 'Imprimantes Bluetooth',
   },
   'caixa-usb': {
-    pt: 'Caixas registradoras USB',
-    en: 'USB cash drawers',
-    es: 'Cajones portamonedas USB',
-    fr: 'Tiroirs-caisses USB',
+    pt: 'Gavetas de dinheiro',
+    en: 'Cash drawers',
+    es: 'Cajones de dinero',
+    fr: 'Tiroirs-caisses',
   },
-  'kit-pc-caixa': { pt: 'Kits PC para caixa', en: 'POS PC kits', es: 'Kits PC para caja', fr: 'Kits PC de caisse' },
+  'kit-pc-caixa': {
+    pt: 'Computadores e terminais PDV',
+    en: 'POS computers & terminals',
+    es: 'Computadoras y terminales de caja',
+    fr: 'Ordinateurs et terminaux de caisse',
+  },
   'kit-headset-boost': {
-    pt: 'Kits de headsets e Boost',
-    en: 'Headset & Boost kits',
-    es: 'Kits de auriculares y Boost',
-    fr: 'Kits casques et Boost',
+    pt: 'Headsets para atendimento',
+    en: 'Customer service headsets',
+    es: 'Auriculares para atención',
+    fr: 'Casques pour la relation client',
   },
   'perifericos-pdv': {
     pt: 'Leitores e periféricos de PDV',
@@ -73,8 +78,14 @@ const CATEGORIAS: Record<string, PorIdioma> = {
 const ROTULOS_PADRAO = new Set(
   [
     ...Object.values(CATEGORIAS).map((c) => c.pt),
+    // rótulos antigos que o SGA ainda pode mandar
     'Kits Headsets & Boost',
+    'Kits de headsets e Boost',
     'Leitores & Periféricos PDV',
+    'Caixas registradoras USB',
+    'Caixas & Gavetas USB',
+    'Kits PC para caixa',
+    'Automação Comercial & PDV',
   ].map((s) => s.toLowerCase())
 );
 
@@ -187,6 +198,29 @@ export function sobConsultaPos(lang: Lang): string {
   return COMUNS[lang].sobConsulta;
 }
 
+const BASE_POR_ID = new Map(produtosPos.map((b) => [b.id, b]));
+const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * A tradução foi escrita para o produto da lista local. Quando o SGA manda outro
+ * nome, descrição, selos ou ficha (produto trocado ou editado lá), o texto do SGA
+ * vale mais que uma tradução de outra coisa: esses campos ficam como vieram.
+ */
+function traducaoQueNaoEscondeOSga(p: ProdutoPos, tx: ProdutoPosTexto): Partial<ProdutoPosTexto> {
+  const base = BASE_POR_ID.get(p.id);
+  if (!base || !p.sgaId) return tx;
+  const out: Partial<ProdutoPosTexto> = { ...tx };
+  if (p.name !== base.name) {
+    delete out.name;
+    delete out.shortTitle;
+  }
+  if (p.shortDesc !== base.shortDesc) delete out.shortDesc;
+  if (p.longDesc !== base.longDesc) delete out.longDesc;
+  if (!igual(p.tags, base.tags)) delete out.tags;
+  if (!igual(p.techSpecs, base.techSpecs)) delete out.techSpecs;
+  return out;
+}
+
 /**
  * Devolve o produto com todos os textos no idioma pedido.
  * `textos` é o dicionário do idioma (ainda pode estar carregando: cai no pt até chegar).
@@ -202,7 +236,7 @@ export function localizarProdutoPos(
   const tx = lang === 'pt' ? undefined : textos?.[p.id];
 
   const traduzido: ProdutoPos = tx
-    ? { ...p, ...tx }
+    ? { ...p, ...traducaoQueNaoEscondeOSga(p, tx) }
     : lang === 'pt'
       ? { ...p }
       : {
